@@ -3,7 +3,6 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, doc, updateDoc, arrayUnion, increment, getDoc } from "firebase/firestore";
 import { firebaseConfig } from "../firebase";
 
-
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -13,12 +12,12 @@ const SuccessPage = () => {
   const [isError, setIsError] = useState(false);
 
   // Fonction pour afficher un message
-  const showMessage = (message, isError = false) => {
-    setMessage(message);
-    setIsError(isError);
+  const showMessage = (msg, error = false) => {
+    setMessage(msg);
+    setIsError(error);
   };
 
-  // Fonction pour mettre à jour le document utilisateur et le solde de l'auteur
+  // Mise à jour du document utilisateur et du solde de l'auteur
   const processPurchaseAndUpdateDB = async (venteData) => {
     try {
       const userRef = doc(db, `users/${venteData.user}`);
@@ -102,20 +101,24 @@ const SuccessPage = () => {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800 p-4">
-      <h1 className="text-4xl font-bold text-green-600 mb-4">Paiement Réussi</h1>
-      <p className="text-lg mb-6">Votre paiement a été validé. Merci pour votre achat !</p>
-      {message && (
-        <p className={`text-lg ${isError ? "text-red-600" : "text-green-600"} mb-6`}>
-          {message}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-4">
+      <div className="max-w-md w-full bg-white shadow-xl rounded-lg p-6 text-center">
+        <h1 className="text-4xl font-extrabold text-green-600 mb-4">Paiement Réussi</h1>
+        <p className="text-lg text-gray-700 mb-6">
+          Votre paiement a été validé. Merci pour votre achat !
         </p>
-      )}
-      <a
-        href="/"
-        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300"
-      >
-        Retour à l'accueil
-      </a>
+        {message && (
+          <p className={`text-lg mb-6 ${isError ? "text-red-600" : "text-green-600"}`}>
+            {message}
+          </p>
+        )}
+        <a
+          href="/"
+          className="inline-block px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300"
+        >
+          Retour à l'accueil
+        </a>
+      </div>
     </div>
   );
 };
