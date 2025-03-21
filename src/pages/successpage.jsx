@@ -1,17 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, updateDoc, arrayUnion, increment, getDoc } from "firebase/firestore";
+import { firebaseConfig } from "../firebase";
 
-// Configuration Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyDlrQAdJLoJTeG3S5LakaHFwWrCCcz7cEA",
-  authDomain: "papersbook-f3826.firebaseapp.com",
-  projectId: "papersbook-f3826",
-  storageBucket: "papersbook-f3826.appspot.com",
-  messagingSenderId: "232506897629",
-  appId: "1:232506897629:web:ff1d449742444c7d4d9734",
-  measurementId: "G-JL47RHZXV5",
-};
 
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig);
