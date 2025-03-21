@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { initializeApp } from "firebase/app";
 import { getFirestore, doc, updateDoc, arrayUnion, increment, getDoc } from "firebase/firestore";
-import { firebaseConfig } from "../firebase";
+import { db } from "../firebase";
 
-// Initialiser Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Supprime ces lignes car db est déjà importé depuis "../firebase"
+// import { initializeApp } from "firebase/app";
+// const app = initializeApp(firebaseConfig);
+// const db = getFirestore(app);
 
 const SuccessPage = () => {
   const [message, setMessage] = useState("");
@@ -25,14 +25,14 @@ const SuccessPage = () => {
         buyed: arrayUnion(venteData.livre),
       });
       console.log("✔ Document utilisateur mis à jour avec le livre acheté.");
-      showMessage("Document utilisateur mis à jour avec succès.");
+      showMessage("");
 
       const auteurRef = doc(db, `auteurs/${venteData.auteur}`);
       await updateDoc(auteurRef, {
         balance: increment(venteData.prix),
       });
       console.log("✔ Solde de l'auteur mis à jour avec succès.");
-      showMessage("Solde de l'auteur mis à jour avec succès.");
+      showMessage("");
 
       const authorDoc = await getDoc(auteurRef);
       const authorData = authorDoc.data();
@@ -52,7 +52,7 @@ const SuccessPage = () => {
       showMessage("Transaction ajoutée avec succès.");
     } catch (error) {
       console.error("Erreur lors de la mise à jour de la base de données :", error);
-      showMessage("Erreur lors de la mise à jour de la base de données.", true);
+      showMessage("", true);
     }
   };
 
