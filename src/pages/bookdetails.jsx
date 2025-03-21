@@ -294,7 +294,7 @@ const BookDetails = () => {
       formData.append('image_link', book.coverUrl);
       formData.append('description', 'Papers est une application mobile innovante pour les auteurs.');
       formData.append('pass', 'My$S3cr3t$Pap3rs'); // À éviter en production
-      formData.append('success_lien', `https://papers.seeds.cm/payementspage/success.html?bookId=${bookId}&userId=${user.uid}`);
+      formData.append('success_lien', `https://papersweb.vercel.app/success/:bookId=${bookId}&userId=${user.uid}`);
       formData.append('echec_lien', 'https://papers.seeds.cm/payementspage/echec.html');
       formData.append('code_produit', bookId);
       formData.append('nom_produit', book.name);
