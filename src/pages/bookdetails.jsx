@@ -7,13 +7,13 @@ import {
   getFirestore,
   doc,
   setDoc,
-  getDoc,
+  getDoc, // Ajout de getDoc
   collection,
   getDocs,
   updateDoc,
   arrayUnion,
   Timestamp,
-  addDoc,
+  addDoc, // Ajout de addDoc
   increment,
   query,
   where,
@@ -52,8 +52,6 @@ const BookDetails = () => {
   });
   const [isPurchased, setIsPurchased] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
-  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   useEffect(() => {
     const fetchBookDetails = async () => {
@@ -67,9 +65,10 @@ const BookDetails = () => {
         if (!querySnapshot.empty) {
           const docSnap = querySnapshot.docs[0];
           const bookData = docSnap.data();
-          console.log("Données du livre récupérées :", bookData);
+          console.log("Données du livre récupérées :", bookData); // Vérifiez les données ici
           setBookDetails(bookData);
   
+          // Mettre à jour les caractéristiques du livre
           if (bookData.caracteristiques) {
             setCaracteristiques({
               annee: bookData.caracteristiques.annee || "Non spécifiée",
@@ -117,19 +116,18 @@ const BookDetails = () => {
 
   const handleBuyBook = async () => {
     const user = auth.currentUser;
+
     if (!user) {
       setShowPurchaseModal(true);
       return;
     }
-    setIsProcessingPurchase(true);
+
     try {
       await BuyBook(bookDetails);
       alert("Achat réussi !");
     } catch (error) {
       console.error("Erreur lors de l'achat : ", error);
       alert("Une erreur s'est produite lors de l'achat. Veuillez réessayer.");
-    } finally {
-      setIsProcessingPurchase(false);
     }
   };
 
@@ -172,6 +170,7 @@ const BookDetails = () => {
       try {
         const bookDoc = doc(db, 'livres', bookId);
         const bookSnapshot = await getDoc(bookDoc);
+
         if (bookSnapshot.exists()) {
           const bookData = bookSnapshot.data();
           setReviews(bookData.revues || []);
@@ -184,6 +183,7 @@ const BookDetails = () => {
         setLoadingReviews(false);
       }
     };
+
     fetchReviews();
   }, [bookId, db]);
 
@@ -191,11 +191,13 @@ const BookDetails = () => {
     try {
       const user = auth.currentUser;
       if (!user || !bookDetails) return;
+
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
       const updatedFavorites = isFavorite
         ? userSnap.data().favorites.filter(name => name !== bookDetails.name)
         : [...(userSnap.data().favorites || []), bookDetails.name];
+
       await updateDoc(userRef, { favorites: updatedFavorites });
       setIsFavorite(!isFavorite);
     } catch (error) {
@@ -205,19 +207,21 @@ const BookDetails = () => {
   };
 
   const handleRatingSubmit = async () => {
-    setIsSubmittingRating(true);
     try {
       const user = auth.currentUser;
       if (!user || !bookDetails) return;
+
       const newReview = {
         user_name: user.displayName || 'Utilisateur',
         note: rating,
         avis: reviewText,
         date: new Date()
       };
+
       const bookRef = doc(db, 'livres', bookId);
       const bookSnap = await getDoc(bookRef);
       const updatedReviews = [...(bookSnap.data().revues || []), newReview];
+
       await updateDoc(bookRef, { revues: updatedReviews });
       setReviews(updatedReviews);
       setRatingModalVisible(false);
@@ -226,8 +230,6 @@ const BookDetails = () => {
     } catch (error) {
       console.error('Erreur lors de la soumission de l\'avis :', error);
       setError('Erreur lors de la soumission de l\'avis.');
-    } finally {
-      setIsSubmittingRating(false);
     }
   };
 
@@ -250,17 +252,25 @@ const BookDetails = () => {
     const db = getFirestore();
     const auth = getAuth();
     let user = auth.currentUser;
+  
+    // Si l'utilisateur n'est pas connecté, on le connecte avec Google
     if (!user) {
       try {
         console.warn("Utilisateur non connecté. Connexion avec Google en cours...");
         const provider = new GoogleAuthProvider();
+  
+        // Connexion avec Google
         const result = await signInWithPopup(auth, provider);
         user = result.user;
+  
         if (!user) {
           console.error("Échec de la connexion via Google.");
           return;
         }
+  
         console.log("Utilisateur connecté avec succès via Google :", user.email);
+  
+        // Mise à jour des informations du profil utilisateur si nécessaire
         const name = user.displayName || "Utilisateur";
         await updateProfile(user, { displayName: name });
         console.log("Profil utilisateur mis à jour :", name);
@@ -272,18 +282,21 @@ const BookDetails = () => {
     }
   
     try {
-      let bookIdFormatted = book.id.replace(/ /g, '_');
-      console.log("ID du livre préparé pour le paiement :", bookIdFormatted);
+      // 1. Préparer l'ID du livre pour le paiement
+      let bookId = book.id.replace(/ /g, '_');
+      console.log("ID du livre préparé pour le paiement :", bookId);
+  
+      // 2. Générer le lien de paiement
       const formData = new FormData();
-      formData.append('email',  "papers@seeds.cm");
+      formData.append('email',  "papers@seeds.cm"); // Utiliser l'email de l'utilisateur connecté
       formData.append('token_app', '4fda55961a3152c09d67ede0d8ae2be9');
       formData.append('montant', book.price.toString());
       formData.append('image_link', book.coverUrl);
       formData.append('description', 'Papers est une application mobile innovante pour les auteurs.');
-      formData.append('pass', 'My$S3cr3t$Pap3rs');
-      formData.append('success_lien', `https://papers.seeds.cm/payementspage/success.html?bookId=${bookIdFormatted}&userId=${user.uid}`);
+      formData.append('pass', 'My$S3cr3t$Pap3rs'); // À éviter en production
+      formData.append('success_lien', `https://papers.seeds.cm/payementspage/success.html?bookId=${bookId}&userId=${user.uid}`);
       formData.append('echec_lien', 'https://papers.seeds.cm/payementspage/echec.html');
-      formData.append('code_produit', bookIdFormatted);
+      formData.append('code_produit', bookId);
       formData.append('nom_produit', book.name);
   
       console.log("Données envoyées pour le paiement :", Object.fromEntries(formData));
@@ -291,7 +304,9 @@ const BookDetails = () => {
       const response = await axios.post(
         'https://www.flash.seeds.cm/flash/Service/set_payment_link',
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
       );
   
       console.log("Réponse reçue du serveur :", response);
@@ -300,10 +315,14 @@ const BookDetails = () => {
       if (contentType && contentType.includes('application/json')) {
         const data = response.data;
         console.log("Données JSON reçues :", data);
+  
         const { lien_paiement } = data.body;
         console.log("Lien de paiement récupéré :", lien_paiement);
+  
         const lien_paiement_base64 = btoa(lien_paiement);
         console.log("Lien de paiement encodé en base64 :", lien_paiement_base64);
+  
+        // 3. Rediriger vers le lien de paiement
         window.location.href = `https://flashsdk.seeds.cm/flash_checkout.html?d=${lien_paiement_base64}`;
         console.log("Redirection vers le lien de paiement en cours...");
       } else {
@@ -339,7 +358,7 @@ const BookDetails = () => {
   }
 
   return (
-    <Container style={{ padding: 0 }}>
+    <Container className="" style={{ padding: 0 }}>
       <div style={{ padding: 16, backgroundColor: '#0cc0df', display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
         <img src={bookDetails.coverUrl} alt="Couverture du livre" style={{ width: '50%', height: '300px', borderRadius: 10 }} />
         <div style={{ justifyContent: 'center', marginLeft: 8 }}>
@@ -353,9 +372,7 @@ const BookDetails = () => {
             <p style={{ marginLeft: 4, fontSize: 8, marginTop: 15 }}>{averageNote}</p>
             <Users color='white' size={8} style={{ marginLeft: 4 }} />
             <p style={{ marginLeft: 4, fontSize: 8, marginTop: 15 }}>{reviews.length}</p>
-            <Button variant="" style={{ height: 8, fontSize: 8, marginLeft: 8, display: 'flex', justifyContent: 'center', backgroundColor: 'white' }} onClick={() => setRatingModalVisible(true)}>
-              <p style={{ marginTop: -8 }}>évaluer</p>
-            </Button>
+            <Button variant="" style={{ height: 8, fontSize: 8, marginLeft: 8, display: 'flex', justifyContent: 'center', backgroundColor: 'white' }} onClick={() => setRatingModalVisible(true)}> <p style={{ marginTop: -8 }}>evaluer</p> </Button>
           </div>
           <p style={{ width: 140, fontWeight: 'bold', color: 'white', marginTop: 5 }} numberOfLines={2}>par {authorInfo.NomPrenom}</p>
         </div>
@@ -369,9 +386,7 @@ const BookDetails = () => {
       <div style={{ borderBottom: '6px solid lightgray', borderBottomColor: '#f9f9f9', display: "flex", justifyContent: 'space-between', padding: 16, alignItems: 'center' }}>
         <div>
           <p>Paiement unique</p>
-          <p style={{ fontSize: 28, marginTop: -15 }}>
-            {bookDetails.price} <span style={{ fontSize: 14 }}>FCFA</span>
-          </p>
+          <p style={{ fontSize: 28, marginTop: -15 }}>{bookDetails.price} <span style={{ fontSize: 14 }}>FCFA</span></p>
         </div>
         <div>
           <Button
@@ -384,13 +399,16 @@ const BookDetails = () => {
               if (isPurchased) {
                 window.location.href = `https://play.google.com/store/apps/details?id=com.seedsoftengine.papers&pcampaignid=web_share`;
               } else {
-                await handleBuyBook();
+                try {
+                  await BuyBook(bookDetails);
+                } catch (error) {
+                  console.error("Erreur lors de l'appel à BuyBook :", error);
+                }
               }
             }}
-            disabled={isProcessingPurchase}
             aria-label={isPurchased ? "Lire le livre" : "Obtenir le livre"}
           >
-            {isProcessingPurchase ? <Spinner as="span" animation="border" size="sm" /> : (isPurchased ? "Lire" : "OBTENIR")}
+            {isPurchased ? "Lire" : "OBTENIR"}
           </Button>
         </div>
       </div>
@@ -421,9 +439,7 @@ const BookDetails = () => {
                       <p style={{ fontSize: 14, width: 100 }}>{episode.description}</p>
                     </div>
                   </div>
-                  <p style={{ marginRight: 'auto', marginTop: 40, fontSize: 8 }}>
-                    <small>{new Date(episode.date).toLocaleDateString()}</small>
-                  </p>
+                  <p style={{ marginRight: 'auto', marginTop: 40, fontSize: 8 }}><small>{new Date(episode.date).toLocaleDateString()}</small></p>
                 </div>
               </ListGroup.Item>
             ))}
@@ -435,7 +451,10 @@ const BookDetails = () => {
         <p style={{ fontSize: 24, fontWeight: "bold" }}>Description</p>
         {showFullDescription ? bookDetails.summary : `${bookDetails.summary?.substring(0, 150)}...`}
         <br />
-        <Button onClick={() => setShowFullDescription(!showFullDescription)} className="mb-3">
+        <Button
+          onClick={() => setShowFullDescription(!showFullDescription)}
+          className="mb-3"
+        >
           {showFullDescription ? 'Voir moins' : 'Voir plus'}
         </Button>
       </div>
@@ -546,12 +565,8 @@ const BookDetails = () => {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setRatingModalVisible(false)} disabled={isSubmittingRating}>
-            Annuler
-          </Button>
-          <Button variant="primary" onClick={handleRatingSubmit} disabled={isSubmittingRating}>
-            {isSubmittingRating ? <Spinner as="span" animation="border" size="sm" /> : "Soumettre"}
-          </Button>
+          <Button variant="secondary" onClick={() => setRatingModalVisible(false)}>Annuler</Button>
+          <Button variant="primary" onClick={handleRatingSubmit}>Soumettre</Button>
         </Modal.Footer>
       </Modal>
     </Container>
