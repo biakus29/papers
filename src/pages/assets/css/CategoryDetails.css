@@ -1,0 +1,67 @@
+.category-details-container {
+    padding: 16px;
+    background-color: #fff;
+  }
+  
+  .header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .back-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: black;
+    cursor: pointer;
+    margin-right: 10px;
+  }
+  
+  .header-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: black;
+  }
+  
+  .books-list {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .book-item {
+    display: flex;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+    cursor: pointer;
+  }
+  
+  .book-cover {
+    width: 120px;
+    height: 200px;
+    margin-right: 16px;
+    border-radius: 6px;
+    object-fit: cover;
+  }
+  
+  .book-info {
+    flex: 1;
+  }
+  
+  .book-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: black;
+  }
+  
+  .book-height {
+    color: black;
+    margin-top: 8px;
+  }
+  
+  .book-summary {
+    margin-top: 8px;
+    color: gray;
+  }
+  

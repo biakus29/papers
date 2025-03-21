@@ -1,0 +1,124 @@
+/* Global Styles */
+
+/* Navbar Styles */
+.navbar {
+  padding: 1rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+}
+
+.navbar.scrolled {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.navbar-brand img {
+  height: 70px;
+  width: 70px;
+  object-fit: cover;
+}
+
+.navbar-nav .nav-link {
+  color: #343a40;
+  font-size: 1.1rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus {
+  color: #007bff;
+  text-decoration: underline;
+}
+
+/* Section Title Styles */
+.sectionTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1rem;
+  text-align: center;
+  position: relative;
+}
+
+.sectionTitle::after {
+  content: '';
+  display: block;
+  width: 80px;
+  height: 4px;
+  background-color: #007bff;
+  margin: 0.5rem auto;
+}
+
+/* Card Styles */
+.card {
+ 
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.3s;
+  background-color: transparent; /* Fond transparent */
+  border: none; /* Retirer la bordure */
+  margin: 0; /* Supprimer les marges */
+  padding: 0; /* Supprimer le padding interne si nécessaire */
+}
+
+.card:hover {
+  transform: scale(1.02); /* Légère augmentation au survol */
+}
+
+.bookCover {
+  width: 100%; /* S'ajuster à la largeur du conteneur */
+  height: 300px; /* Hauteur fixe pour toutes les images */
+  object-fit: cover; /* Maintenir le ratio d'aspect en remplissant le conteneur */
+  border-radius: 5px; /* Coins arrondis */
+}
+
+.skeletonBookCover {
+  width: 100%; /* S'ajuster à la largeur du conteneur */
+  height: 300px; /* Hauteur fixe pour le skeleton */
+  
+  animation: pulse 1.5s infinite; /* Animation de pulsation */
+}
+
+@keyframes pulse {
+  0% {
+    background-color: rgba(221, 221, 221, 0.8);
+  }
+  50% {
+    background-color: rgba(201, 201, 201, 0.8);
+  }
+  100% {
+    background-color: rgba(221, 221, 221, 0.8);
+  }
+}
+
+/* Loading Spinner */
+.spinner-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+/* Category Card Styles */
+.categoryText {
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .navbar-nav .nav-link {
+    font-size: 0.9rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.5rem;
+  }
+
+  .categoryText {
+    font-size: 1.2rem;
+  }
+}

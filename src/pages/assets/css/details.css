@@ -1,0 +1,97 @@
+/* Styles généraux */
+
+
+/* Conteneur principal */
+.container {
+  max-width: 1200px;
+  margin: auto;
+}
+
+/* Cartes */
+.card {
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: scale(1.02);
+}
+
+.card-title {
+  font-weight: bold;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.card-text {
+  color: #666;
+}
+
+/* Boutons */
+.btn {
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.btn-outline-primary {
+  border: 2px solid #007bff;
+  color: #007bff;
+}
+
+.btn-outline-primary:hover {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border: none;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+/* Listes d'Avis */
+.list-group-item {
+  border: none;
+  border-radius: 8px;
+  background-color: white;
+  margin-bottom: 10px;
+  padding: 15px;
+}
+
+.list-group-item h5 {
+  margin: 0;
+}
+
+/* Images */
+.rounded-circle {
+  border-radius: 50%;
+}
+
+.shadow-sm {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal */
+.modal-content {
+  border-radius: 10px;
+}
+
+/* Responsivité */
+@media (max-width: 768px) {
+  .card {
+    margin-bottom: 20px;
+  }
+}
