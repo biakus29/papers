@@ -389,27 +389,64 @@ const BookDetails = () => {
           <p style={{ fontSize: 28, marginTop: -15 }}>{bookDetails.price} <span style={{ fontSize: 14 }}>FCFA</span></p>
         </div>
         <div>
-          <Button
-            style={{
-              backgroundColor: isPurchased ? "#007bff" : "#12c066",
-              color: "white",
-              border: "none",
-            }}
-            onClick={async () => {
-              if (isPurchased) {
-                window.location.href = `https://play.google.com/store/apps/details?id=com.seedsoftengine.papers&pcampaignid=web_share`;
-              } else {
-                try {
-                  await BuyBook(bookDetails);
-                } catch (error) {
-                  console.error("Erreur lors de l'appel à BuyBook :", error);
-                }
-              }
-            }}
-            aria-label={isPurchased ? "Lire le livre" : "Obtenir le livre"}
-          >
-            {isPurchased ? "Lire" : "OBTENIR"}
-          </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+  {/* Container des logos */}
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "5px 10px",
+      // borderRadius: "8px",
+      // border: "1px solid #ddd",
+      backgroundColor: "white",
+      // boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+      height: "40px" // Hauteur fixe pour aligner avec le bouton
+    }}
+  >
+    <img
+      src="https://1000logos.net/wp-content/uploads/2021/02/Orange-Money-emblem.png"
+      style={{ height: "20px", width: "auto" }}
+      alt="Orange Money"
+    />
+    <img
+      src="https://www.kindpng.com/picc/m/151-1514348_mtn-momo-logo-mobile-money-logo-png-transparent.png"
+      style={{ height: "20px", width: "auto" }}
+      alt="MTN Mobile Money"
+    />
+  </div>
+
+  {/* Bouton principal */}
+  <Button
+    style={{
+      backgroundColor: isPurchased ? "#007bff" : "#12c066",
+      color: "white",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "10px 20px",
+      borderRadius: "8px",
+      fontWeight: "bold",
+      height: "40px" // Hauteur identique au container des logos
+    }}
+    onClick={async () => {
+      if (isPurchased) {
+        window.location.href = `https://play.google.com/store/apps/details?id=com.seedsoftengine.papers&pcampaignid=web_share`;
+      } else {
+        try {
+          await BuyBook(bookDetails);
+        } catch (error) {
+          console.error("Erreur lors de l'appel à BuyBook :", error);
+        }
+      }
+    }}
+    aria-label={isPurchased ? "Lire le livre" : "Obtenir le livre"}
+  >
+    {isPurchased ? "Lire" : "OBTENIR"}
+  </Button>
+</div>
+
         </div>
       </div>
 

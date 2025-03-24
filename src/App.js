@@ -9,9 +9,8 @@ import Bibliothèque from './pages/biblio.jsx';
 import NotFound from './pages/NotFound.jsx'; // Assurez-vous d'avoir ce composant
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Profile from './pages/Profile.jsx';
-// import PdfViewer from './pages/PdfViewer.jsx';
+import CollectionDetail from './pages/collectiondetails.jsx';
 import SuccessPage from './pages/successpage.jsx';
-// import PrePurchasePage from './pages/pre-purchase.jsx';
 
 
 function App() {
@@ -28,10 +27,9 @@ function App() {
             <Route path="/book/:bookId" element={<BookDetails />} />
             <Route path="/biblio" element={<Bibliothèque />} />
             <Route path="/Profile" element={<Profile/>} />
-            {/* <Route path="/PdfViewer" element={<PdfViewer/>} /> */}
+            <Route path="/collection/:collectionId" element={<CollectionDetail />} />
             <Route path="/success/:bookId" element={<SuccessPage />} />
-            {/* <Route path="/pre-purchase" element={<PrePurchasePage/>} /> */}
-
+            
             <Route path="*" element={<NotFound />} /> {/* Route 404 */}
            
           </Routes>

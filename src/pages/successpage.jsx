@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getFirestore, doc, updateDoc, arrayUnion, increment, getDoc } from "firebase/firestore";
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, arrayUnion, increment } from "firebase/firestore";
 import { db } from "../firebase";
 
 const SuccessPage = () => {
@@ -7,17 +7,14 @@ const SuccessPage = () => {
 
   const processPurchaseAndUpdateDB = async (venteData) => {
     try {
-      // Conversion du prix en nombre
       const prix = parseFloat(venteData.prix);
 
-      // Met à jour la collection users : ajout du livre dans "buyed"
       const userRef = doc(db, `users/${venteData.user}`);
       await updateDoc(userRef, {
         buyed: arrayUnion(venteData.livre),
       });
       console.log("✔ Livre ajouté dans la collection users.");
 
-      // Met à jour la collection auteurs : incrémente le champ "solde"
       const auteurRef = doc(db, `auteurs/${venteData.auteur}`);
       await updateDoc(auteurRef, {
         solde: increment(prix),
@@ -30,28 +27,19 @@ const SuccessPage = () => {
 
   const updateSuccessState = async () => {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const venteId = urlParams.get("venteId");
+      const ventesRef = collection(db, "ventes_direct");
+      const q = query(ventesRef, where("etat", "==", "en cours"));
+      const querySnapshot = await getDocs(q);
 
-      if (!venteId) {
-        console.error("ID de vente manquant dans l'URL.");
-        return;
-      }
-
-      const venteRef = doc(db, `ventes_direct/${venteId}`);
-      const venteDoc = await getDoc(venteRef);
-
-      if (venteDoc.exists()) {
-        const venteData = venteDoc.data();
-
-        // Vérifie si l'état est "en cours" avant de passer à "reussi"
-        if (venteData.etat === "en cours") {
-          await updateDoc(venteRef, { etat: "reussi" });
+      if (!querySnapshot.empty) {
+        for (const venteDoc of querySnapshot.docs) {
+          const venteData = venteDoc.data();
+          await updateDoc(venteDoc.ref, { etat: "reussi" });
           console.log("✔ État de la vente mis à jour.");
           await processPurchaseAndUpdateDB(venteData);
         }
       } else {
-        console.error("Document de vente introuvable !");
+        console.error("Aucune vente en cours trouvée.");
       }
     } catch (error) {
       console.error("Erreur lors de la mise à jour de l'état :", error);
@@ -81,12 +69,20 @@ const SuccessPage = () => {
             Votre paiement a été validé. Merci pour votre achat !
           </p>
         )}
-        <a
-          href="/"
-          className="inline-block px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300"
-        >
-          Retour à l'accueil
-        </a>
+        <div className="flex flex-col space-y-4">
+          <a
+            href="/"
+            className="inline-block px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300"
+          >
+            Retour à l'accueil
+          </a>
+          <a
+            href="/biblio"
+            className="inline-block px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-300"
+          >
+            Aller à la Bibliothèque
+          </a>
+        </div>
       </div>
     </div>
   );

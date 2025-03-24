@@ -1,19 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Image, Button, Alert, Spinner, Card } from 'react-bootstrap';
+import { Container, Row, Col, Image, Button, Alert, Spinner, Card, Tabs, Tab, Badge } from 'react-bootstrap';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
-import { FaChevronLeft, FaHome, FaCompass, FaBookmark } from 'react-icons/fa';
+import { FaChevronLeft, FaHome, FaCompass, FaBookmark, FaPlus, FaQuestionCircle } from 'react-icons/fa';
 
 const Profile = () => {
-  const { sharedState, setSharedState } = useAppContext();
+  const { setSharedState } = useAppContext();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [visibleTransactions, setVisibleTransactions] = useState(5);
+  const [activeTab, setActiveTab] = useState('all');
+
+  // Fonction pour charger plus de transactions
+  const loadMoreTransactions = () => {
+    setVisibleTransactions(prev => prev + 5);
+  };
+
+  // Fonction pour déterminer la couleur du badge selon le statut
+  const getStatusBadgeColor = (status) => {
+    switch(status) {
+      case 'en cours':
+        return 'warning';
+      case 'completé':
+        return 'success';
+      case 'annulé':
+        return 'danger';
+      default:
+        return 'info';
+    }
+  };
 
   // Récupération des informations utilisateur depuis Firebase
   useEffect(() => {
@@ -50,13 +71,74 @@ const Profile = () => {
 
   const fetchTransactions = async (userId) => {
     try {
-      const q = query(collection(db, 'ventes_direct'), where('user', '==', userId));
+      const q = query(
+        collection(db, "ventes_direct"), 
+        where("user", "==", userId),
+        // orderBy("date", "desc")
+      );
       const querySnapshot = await getDocs(q);
-      const fetchedTransactions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const fetchedTransactions = await Promise.all(
+        querySnapshot.docs.map(async (docSnap) => {
+          const transac = { id: docSnap.id, ...docSnap.data() };
+
+          // Formatage des données
+          transac.moyen = transac.moyen === "_" ? "Non spécifié" : transac.moyen;
+          
+          // Conversion de la date
+          if (transac.date && typeof transac.date.toDate === 'function') {
+            transac.formattedDate = transac.date.toDate().toLocaleString('fr-FR', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          } else {
+            transac.formattedDate = "Date non disponible";
+          }
+
+          // Récupération du nom et image du livre
+          if (transac.livre) {
+            const livreRef = doc(db, "livres", transac.livre);
+            const livreSnap = await getDoc(livreRef);
+
+            if (livreSnap.exists()) {
+              transac.nomLivre = livreSnap.data().name || "Livre sans nom";
+              transac.imageLivre = livreSnap.data().image || 'https://via.placeholder.com/60';
+            } else {
+              transac.nomLivre = "Livre inconnu";
+              transac.imageLivre = 'https://via.placeholder.com/60';
+            }
+          } else {
+            transac.nomLivre = "ID livre manquant";
+            transac.imageLivre = 'https://via.placeholder.com/60';
+          }
+
+          return transac;
+        })
+      );
+
       setTransactions(fetchedTransactions);
     } catch (err) {
-      setError('Échec du chargement des transactions');
+      setError("Échec du chargement des transactions");
+      console.error("Erreur dans fetchTransactions:", err);
     }
+  };
+
+  // Extraction des statuts uniques dans les transactions
+  const uniqueStatuses = Array.from(new Set(transactions.map(t => t.etat)));
+
+  // Filtrage des transactions en fonction du statut
+  const filterTransactionsByStatus = (status) => {
+    if (status === 'all') return transactions;
+    return transactions.filter(t => t.etat === status);
+  };
+
+  // Fonction pour obtenir les transactions visibles (limitée par visibleTransactions)
+  const getVisibleTransactions = (status) => {
+    const filtered = filterTransactionsByStatus(status);
+    return filtered.slice(0, visibleTransactions);
   };
 
   if (loading) {
@@ -75,8 +157,17 @@ const Profile = () => {
     );
   }
 
+  if (!user) {
+    return (
+      <Container className="d-flex justify-content-center align-items-center vh-100">
+        <Alert variant="warning">Utilisateur non trouvé.</Alert>
+      </Container>
+    );
+  }
+
   return (
     <Container fluid className="px-3" style={{ maxWidth: '500px' }}>
+      {/* Header */}
       <Row className="pt-3 align-items-center">
         <Col xs={2}>
           <Button variant="link" onClick={() => navigate('/homes')}>
@@ -84,43 +175,46 @@ const Profile = () => {
           </Button>
         </Col>
         <Col xs={8} className="text-center">
-          <h5 className="mb-0">Mon Profil</h5>
+          <h4 className="mb-0">Mon Profil</h4>
         </Col>
-        <Col xs={2}></Col>
+        <Col xs={2} className="d-flex justify-content-end">
+          <Button variant="outline-secondary" size="sm" onClick={handleLogout}>
+            Déconnexion
+          </Button>
+        </Col>
       </Row>
 
+      {/* Profil utilisateur */}
       <Card className="mt-3 shadow-sm">
         <Card.Body className="text-center">
           <Image 
-            src={user.image} 
+            src={user.image || 'https://via.placeholder.com/120'} 
             roundedCircle 
             width={120} 
             height={120} 
             className="mb-3" 
-            style={{ objectFit: 'cover' }} 
+            style={{ objectFit: 'cover', border: '3px solid #0cc0df' }} 
           />
-          <h4>{user.uname}</h4>
+          <h5 className="mb-1">{user.uname}</h5>
           <p className="text-muted">{user.adresse}</p>
-          <Button variant="outline-danger" onClick={handleLogout}>
-            Déconnexion
-          </Button>
         </Card.Body>
       </Card>
 
-      <Row className="mt-4">
-        <Col xs={4} className="text-center">
+      {/* Navigation secondaire */}
+      <Row className="mt-4 text-center">
+        <Col>
           <Button variant="light" onClick={() => navigate('/homes')} className="w-100">
             <FaHome size={20} />
             <div style={{ fontSize: '0.75rem' }}>Accueil</div>
           </Button>
         </Col>
-        <Col xs={4} className="text-center">
+        <Col>
           <Button variant="light" onClick={() => navigate('/discover')} className="w-100">
             <FaCompass size={20} />
             <div style={{ fontSize: '0.75rem' }}>Découvrez</div>
           </Button>
         </Col>
-        <Col xs={4} className="text-center">
+        <Col>
           <Button variant="light" onClick={() => navigate('/biblio')} className="w-100">
             <FaBookmark size={20} />
             <div style={{ fontSize: '0.75rem' }}>Bibliothèque</div>
@@ -128,50 +222,169 @@ const Profile = () => {
         </Col>
       </Row>
 
-      <Row className="mt-4">
+      {/* Séparateur */}
+      <hr className="my-4" />
+
+      {/* Transactions regroupées par statut */}
+      <Row>
         <Col xs={12}>
           <h6 className="mb-3">Mes Transactions :</h6>
-          {transactions.length > 0 ? (
-            transactions.map((transac) => (
-              <Card key={transac.id} className="mb-2">
-                <Card.Body>
-                  <h6>Livre : {transac.livre}</h6>
-                  <p>Prix : {transac.prix} FCFA</p>
-                  <p>Moyen : {transac.moyen}</p>
-                  <p>État : {transac.etat}</p>
-                  <td>{transac.date?.toDate().toLocaleString()}</td>
 
-                </Card.Body>
-              </Card>
-            ))
-          ) : (
-            <p className="text-center text-muted">Aucune transaction enregistrée.</p>
-          )}
+          <Tabs defaultActiveKey="all" id="transaction-tabs" className="mb-3">
+            {/* Onglet "Tous" */}
+            <Tab eventKey="all" title="Tous">
+              {getVisibleTransactions("all").length > 0 ? (
+                <>
+                  {getVisibleTransactions("all").map((transac) => (
+                    <Card key={transac.id} className="mb-3 shadow-sm">
+                      <Card.Body className="p-2">
+                        <Row className="align-items-center">
+                          {/* Image du livre */}
+                          <Col xs={3} className="pe-0">
+                            <Image 
+                              src={transac.imageLivre} 
+                              rounded 
+                              fluid 
+                              style={{ width: '60px', height: '80px', objectFit: 'cover' }}
+                            />
+                          </Col>
+                          
+                          {/* Détails de la transaction */}
+                          <Col xs={9}>
+                            <Row>
+                              <Col xs={8} className="fw-bold text-truncate">
+                                {transac.nomLivre}
+                              </Col>
+                              <Col xs={4} className="text-end">
+                                <Badge bg={getStatusBadgeColor(transac.etat)}>
+                                  {transac.etat}
+                                </Badge>
+                              </Col>
+                            </Row>
+                            
+                            <Row className="mt-1">
+                              <Col xs={12} className="text-muted small">
+                                {transac.formattedDate}
+                              </Col>
+                            </Row>
+                            
+                            <Row className="align-items-center mt-2">
+                              <Col xs={6} className="fw-bold text-success">
+                                {transac.prix} FCFA
+                              </Col>
+                              <Col xs={6} className="text-end small">
+                                <span className={transac.moyen === "Non spécifié" ? "text-muted" : "text-primary"}>
+                                  {transac.moyen === "Non spécifié" ? <FaQuestionCircle /> : transac.moyen}
+                                </span>
+                              </Col>
+                            </Row>
+                          </Col>
+                        </Row>
+                      </Card.Body>
+                    </Card>
+                  ))}
+                  
+                  {transactions.length > visibleTransactions && (
+                    <div className="text-center mt-3">
+                      <Button variant="outline-primary" onClick={loadMoreTransactions}>
+                        <FaPlus /> Voir plus
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-center text-muted">Aucune transaction enregistrée.</p>
+              )}
+            </Tab>
+
+            {/* Onglets dynamiques pour chaque statut */}
+            {uniqueStatuses.map((status) => (
+              <Tab key={status} eventKey={status} title={status}>
+                {getVisibleTransactions(status).length > 0 ? (
+                  <>
+                    {getVisibleTransactions(status).map((transac) => (
+                      <Card key={transac.id} className="mb-3 shadow-sm">
+                        <Card.Body className="p-2">
+                          <Row className="align-items-center">
+                            <Col xs={3} className="pe-0">
+                              <Image 
+                                src={transac.imageLivre} 
+                                rounded 
+                                fluid 
+                                style={{ width: '60px', height: '80px', objectFit: 'cover' }}
+                              />
+                            </Col>
+                            <Col xs={9}>
+                              <Row>
+                                <Col xs={8} className="fw-bold text-truncate">
+                                  {transac.nomLivre}
+                                </Col>
+                                <Col xs={4} className="text-end">
+                                  <Badge bg={getStatusBadgeColor(transac.etat)}>
+                                    {transac.etat}
+                                  </Badge>
+                                </Col>
+                              </Row>
+                              <Row className="mt-1">
+                                <Col xs={12} className="text-muted small">
+                                  {transac.formattedDate}
+                                </Col>
+                              </Row>
+                              <Row className="align-items-center mt-2">
+                                <Col xs={6} className="fw-bold text-success">
+                                  {transac.prix} FCFA
+                                </Col>
+                                <Col xs={6} className="text-end small">
+                                  <span className={transac.moyen === "Non spécifié" ? "text-muted" : "text-primary"}>
+                                    {transac.moyen === "Non spécifié" ? <FaQuestionCircle /> : transac.moyen}
+                                  </span>
+                                </Col>
+                              </Row>
+                            </Col>
+                          </Row>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                    {filterTransactionsByStatus(status).length > visibleTransactions && (
+                      <div className="text-center mt-3">
+                        <Button variant="outline-primary" onClick={loadMoreTransactions}>
+                          <FaPlus /> Voir plus
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-center text-muted">Aucune transaction pour ce statut.</p>
+                )}
+              </Tab>
+            ))}
+          </Tabs>
         </Col>
       </Row>
 
+      {/* Appels à l'action */}
       <Row className="mt-4">
         <Col xs={12} className="mb-3">
           <Card 
-            className="shadow-sm" 
+            className="shadow-sm clickable" 
             onClick={() => navigate('/create-editor')} 
             style={{ cursor: 'pointer' }}
           >
             <Card.Body className="text-center">
-              <h5 className="mb-1">Devenir Éditeur</h5>
-              <small className="text-muted">Créez un compte pour gérer vos publications</small>
+              <h6 className="mb-1">Devenir Éditeur</h6>
+              <small className="text-muted">Gérez vos publications</small>
             </Card.Body>
           </Card>
         </Col>
         <Col xs={12}>
           <Card 
-            className="shadow-sm" 
+            className="shadow-sm clickable" 
             onClick={() => navigate('/create-author')} 
             style={{ cursor: 'pointer' }}
           >
             <Card.Body className="text-center">
-              <h5 className="mb-1">Devenir Auteur</h5>
-              <small className="text-muted">Créez un compte pour publier vos œuvres</small>
+              <h6 className="mb-1">Devenir Auteur</h6>
+              <small className="text-muted">Publiez vos œuvres</small>
             </Card.Body>
           </Card>
         </Col>
