@@ -1,87 +1,124 @@
 import React, { useEffect, useState } from "react";
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc, arrayUnion, increment } from "firebase/firestore";
-import { db } from "../firebase";
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, arrayUnion, increment, addDoc } from "firebase/firestore";
+import { db, auth } from "../firebase";
+import { Timestamp } from "firebase/firestore"; 
+import { useNavigate } from "react-router-dom";
+import { CheckCircleIcon, ExclamationCircleIcon, ClockIcon, ArrowRightIcon, BookOpenIcon } from "@heroicons/react/24/outline";
 
 const SuccessPage = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [purchaseStatus, setPurchaseStatus] = useState(null);
+  const navigate = useNavigate();
 
-  const processPurchaseAndUpdateDB = async (venteData) => {
-    try {
-      const prix = parseFloat(venteData.prix);
-
-      const userRef = doc(db, `users/${venteData.user}`);
-      await updateDoc(userRef, {
-        buyed: arrayUnion(venteData.livre),
-      });
-      console.log("✔ Livre ajouté dans la collection users.");
-
-      const auteurRef = doc(db, `auteurs/${venteData.auteur}`);
-      await updateDoc(auteurRef, {
-        solde: increment(prix),
-      });
-      console.log("✔ Solde de l'auteur mis à jour.");
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour de la base de données :", error);
-    }
+  const processPurchaseAndUpdateDB = async (bookData) => {
+    // ... (keep your existing processPurchaseAndUpdateDB implementation)
   };
 
-  const updateSuccessState = async () => {
-    try {
-      const ventesRef = collection(db, "ventes_direct");
-      const q = query(ventesRef, where("etat", "==", "en cours"));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        for (const venteDoc of querySnapshot.docs) {
-          const venteData = venteDoc.data();
-          await updateDoc(venteDoc.ref, { etat: "reussi" });
-          console.log("✔ État de la vente mis à jour.");
-          await processPurchaseAndUpdateDB(venteData);
-        }
-      } else {
-        console.error("Aucune vente en cours trouvée.");
-      }
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour de l'état :", error);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSuccessfulPurchase = async () => {
+    // ... (keep your existing handleSuccessfulPurchase implementation)
   };
 
   useEffect(() => {
-    updateSuccessState();
+    handleSuccessfulPurchase();
   }, []);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-4">
-      <div className="max-w-md w-full bg-white shadow-xl rounded-lg p-8 text-center">
-        <h1 className="text-4xl font-extrabold text-green-600 mb-6">Paiement Réussi</h1>
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center">
-            <svg className="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            </svg>
-            <p className="text-lg text-gray-700">Mise à jour en cours...</p>
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+          <h3 className="text-lg font-medium text-gray-700">Traitement en cours</h3>
+          <p className="text-gray-500">Veuillez patienter pendant que nous validons votre achat...</p>
+        </div>
+      );
+    }
+
+    switch (purchaseStatus) {
+      case "success":
+        return (
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
+              <CheckCircleIcon className="h-10 w-10 text-green-600" />
+            </div>
+            <h2 className="mt-4 text-2xl font-bold text-gray-900">Paiement confirmé !</h2>
+            <p className="mt-2 text-gray-600">Votre achat a été enregistré avec succès.</p>
+            
+            <div className="mt-8 space-y-4">
+              <button
+                onClick={() => navigate("/bibliotheque")}
+                className="w-full flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Accéder à ma bibliothèque
+                <BookOpenIcon className="ml-2 h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={() => navigate("/")}
+                className="w-full flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Retour à l'accueil
+                <ArrowRightIcon className="ml-2 h-5 w-5" />
+              </button>
+            </div>
           </div>
-        ) : (
-          <p className="text-lg text-gray-700 mb-6">
-            Votre paiement a été validé. Merci pour votre achat !
+        );
+      case "no_pending":
+        return (
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100">
+              <ExclamationCircleIcon className="h-10 w-10 text-yellow-600" />
+            </div>
+            <h2 className="mt-4 text-2xl font-bold text-gray-900">Aucun achat en attente</h2>
+            <p className="mt-2 text-gray-600">Votre paiement a été accepté mais aucun achat n'était en attente.</p>
+            <button
+              onClick={() => navigate("/contact")}
+              className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+            >
+              Contacter le support
+            </button>
+          </div>
+        );
+      case "error":
+        return (
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100">
+              <ExclamationCircleIcon className="h-10 w-10 text-red-600" />
+            </div>
+            <h2 className="mt-4 text-2xl font-bold text-gray-900">Erreur de traitement</h2>
+            <p className="mt-2 text-gray-600">Votre paiement a été accepté mais une erreur est survenue.</p>
+            <div className="mt-6 bg-red-50 p-4 rounded-md">
+              <p className="text-sm text-red-700">Veuillez contacter notre support avec votre référence de paiement.</p>
+            </div>
+            <button
+              onClick={() => navigate("/contact")}
+              className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Support technique
+            </button>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-xl shadow-lg">
+        <div className="text-center">
+          <h1 className="text-3xl font-extrabold text-gray-900">
+            Confirmation de paiement
+          </h1>
+        </div>
+        
+        <div className="mt-8">
+          {renderContent()}
+        </div>
+        
+        <div className="mt-8 pt-5 border-t border-gray-200">
+          <p className="text-xs text-gray-500 text-center">
+            En cas de problème, contactez-nous à support@votreapp.com
           </p>
-        )}
-        <div className="flex flex-col space-y-4">
-          <a
-            href="/"
-            className="inline-block px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300"
-          >
-            Retour à l'accueil
-          </a>
-          <a
-            href="/biblio"
-            className="inline-block px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-300"
-          >
-            Aller à la Bibliothèque
-          </a>
         </div>
       </div>
     </div>
