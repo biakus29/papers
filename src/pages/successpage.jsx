@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  arrayUnion, 
+  increment,
+  addDoc,
+  collection 
+} from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { CheckCircleIcon, BookOpenIcon, HomeIcon } from '@heroicons/react/24/outline';
-import Lottie from 'lottie-react';
-import successAnimation from '../assets/animations/success.json';
 
 const SuccessPage = () => {
   const location = useLocation();
@@ -18,7 +23,7 @@ const SuccessPage = () => {
     const processTransaction = async () => {
       setIsProcessing(true);
       try {
-        // 1. Récupérer l'ID de transaction depuis l'URL
+        // 1. Récupérer les paramètres
         const searchParams = new URLSearchParams(location.search);
         const bookId = searchParams.get('bookId');
         const userId = searchParams.get('userId');
@@ -27,14 +32,14 @@ const SuccessPage = () => {
           throw new Error('Paramètres de transaction manquants');
         }
 
-        // 2. Récupérer les détails du livre
+        // 2. Récupérer le livre
         const bookDoc = await getDoc(doc(db, 'livres', bookId));
         if (!bookDoc.exists()) {
           throw new Error('Livre non trouvé');
         }
         const bookData = bookDoc.data();
 
-        // 3. Mettre à jour les documents Firestore
+        // 3. Mises à jour Firestore
         await Promise.all([
           // Mise à jour utilisateur
           updateDoc(doc(db, 'users', userId), {
@@ -48,7 +53,7 @@ const SuccessPage = () => {
             totalVentes: increment(1)
           }),
           
-          // Créer l'enregistrement de vente
+          // Enregistrement de la vente
           addDoc(collection(db, 'ventes_direct'), {
             user: userId,
             auteur: bookData.hauteur,
@@ -60,7 +65,7 @@ const SuccessPage = () => {
           })
         ]);
 
-        // 4. Stocker les détails pour l'affichage
+        // 4. Préparer les données pour l'affichage
         setTransaction({
           bookTitle: bookData.name,
           bookCover: bookData.coverUrl,
@@ -83,9 +88,7 @@ const SuccessPage = () => {
   if (loading || isProcessing) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <div className="w-32 h-32 mb-6">
-          <div className="animate-spin rounded-full h-24 w-24 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
-        </div>
+        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <h3 className="text-xl font-medium text-gray-700">Traitement de votre achat...</h3>
       </div>
     );
@@ -94,8 +97,8 @@ const SuccessPage = () => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-        <div className="bg-red-100 p-4 rounded-full mb-6">
-          <CheckCircleIcon className="h-12 w-12 text-red-500" />
+        <div className="bg-red-100 text-red-500 text-5xl mb-4 rounded-full w-16 h-16 flex items-center justify-center">
+          !
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Erreur de traitement</h2>
         <p className="text-gray-600 mb-6 max-w-md text-center">{error}</p>
@@ -114,8 +117,8 @@ const SuccessPage = () => {
       <div className="w-full max-w-md bg-white rounded-xl shadow-md overflow-hidden">
         <div className="p-8">
           <div className="flex justify-center mb-6">
-            <div className="w-40 h-40">
-              <Lottie animationData={successAnimation} loop={false} />
+            <div className="bg-green-100 text-green-500 text-8xl rounded-full w-32 h-32 flex items-center justify-center">
+              ✓
             </div>
           </div>
 
@@ -148,18 +151,16 @@ const SuccessPage = () => {
           <div className="flex flex-col space-y-3">
             <button
               onClick={() => navigate('/bibliotheque')}
-              className="flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-center"
             >
-              <BookOpenIcon className="h-5 w-5" />
-              <span>Accéder à ma bibliothèque</span>
+              Accéder à ma bibliothèque
             </button>
             
             <button
               onClick={() => navigate('/')}
-              className="flex items-center justify-center space-x-2 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-center"
             >
-              <HomeIcon className="h-5 w-5" />
-              <span>Retour à l'accueil</span>
+              Retour à l'accueil
             </button>
           </div>
 
