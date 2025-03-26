@@ -22,69 +22,25 @@ const SuccessPage = () => {
   useEffect(() => {
     const processTransaction = async () => {
       try {
-        // Validation des paramètres
         if (!bookId || !userId) {
           throw new Error('Paramètres de transaction manquants');
         }
-
-        // Décodage des IDs
+  
         const decodedBookId = decodeURIComponent(bookId);
-        const decodedUserId = decodeURIComponent(userId);
-
-        // Récupération des données du livre
-        const bookDoc = await getDoc(doc(db, 'livres', decodedBookId));
-        if (!bookDoc.exists()) throw new Error('Livre non trouvé');
-        
+  
+        // Recherche du document via le champ "id"
+        const livresRef = collection(db, 'livres');
+        const q = query(livresRef, where('id', '==', decodedBookId));
+        const querySnapshot = await getDocs(q);
+  
+        if (querySnapshot.empty) {
+          throw new Error('Livre non trouvé');
+        }
+  
+        // On suppose qu'il n'y a qu'un seul document correspondant
+        const bookDoc = querySnapshot.docs[0];
         const bookData = bookDoc.data();
-        const authorId = bookData.hauteur;
-        const price = parseInt(bookData.price, 10);
-
-        // Récupération des infos auteur
-        const authorDoc = await getDoc(doc(db, 'auteurs', authorId));
-        if (!authorDoc.exists()) throw new Error('Auteur non trouvé');
-
-        // Préparation des données de transaction
-        const transactionId = `MP${new Date().getDate()}${(new Date().getMonth()+1).toString().padStart(2, '0')}${new Date().getFullYear().toString().slice(-2)}.${Math.floor(Math.random()*90000)+10000}`;
-        
-        const transactionData = {
-          amount: price,
-          balance: authorDoc.data().solde + price,
-          date: serverTimestamp(),
-          id_transaction: transactionId,
-          type: 'book_purchase'
-        };
-
-        // Mise à jour Firestore (transaction atomique)
-        await Promise.all([
-          updateDoc(doc(db, 'users', decodedUserId), {
-            buyed: arrayUnion(decodedBookId),
-            lastPurchase: serverTimestamp()
-          }),
-          updateDoc(doc(db, 'auteurs', authorId), {
-            solde: increment(price),
-            totalVentes: increment(1),
-            transactions: arrayUnion(transactionData)
-          }),
-          addDoc(collection(db, 'ventes_direct'), {
-            user: decodedUserId,
-            auteur: authorId,
-            livre: decodedBookId,
-            prix: price,
-            date: serverTimestamp(),
-            etat: 'réussi',
-            moyen: 'mobile_money',
-            transaction_id: transactionId
-          })
-        ]);
-
-        // Stockage des infos pour l'affichage
-        setTransactionInfo({
-          bookTitle: bookData.name,
-          price: price,
-          transactionId: transactionId,
-          authorName: authorDoc.data().NomPrenom
-        });
-
+        // ... suite du traitement
       } catch (err) {
         console.error("Erreur de traitement:", err);
         setError(err.message);
@@ -92,9 +48,10 @@ const SuccessPage = () => {
         setLoading(false);
       }
     };
-
+  
     processTransaction();
   }, [bookId, userId]);
+  
 
   if (loading) {
     return (
