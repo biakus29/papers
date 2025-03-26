@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
 
-  getDoc, 
+  getDocs, 
 
   collection,
   
@@ -30,7 +30,7 @@ const SuccessPage = () => {
         // Recherche du document via le champ "id"
         const livresRef = collection(db, 'livres');
         const q = query(livresRef, where('id', '==', decodedBookId));
-        const querySnapshot = await getDoc(q);
+        const querySnapshot = await getDocs(q)
   
         if (querySnapshot.empty) {
           throw new Error('Livre non trouvé');
