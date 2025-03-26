@@ -28,7 +28,7 @@ function App() {
             <Route path="/biblio" element={<Bibliothèque />} />
             <Route path="/Profile" element={<Profile/>} />
             <Route path="/collection/:collectionId" element={<CollectionDetail />} />
-            <Route path="/success/:bookId" element={<SuccessPage />} />
+            <Route path="/success/:bookId/:userId" element={<SuccessPage />} />
             
             <Route path="*" element={<NotFound />} /> {/* Route 404 */}
            

@@ -248,94 +248,68 @@ const BookDetails = () => {
     }
   };
 
-  const BuyBook = async (book) => {
-    const db = getFirestore();
-    const auth = getAuth();
-    let user = auth.currentUser;
-  
-    // Si l'utilisateur n'est pas connecté, on le connecte avec Google
-    if (!user) {
-      try {
-        console.warn("Utilisateur non connecté. Connexion avec Google en cours...");
-        const provider = new GoogleAuthProvider();
-  
-        // Connexion avec Google
-        const result = await signInWithPopup(auth, provider);
-        user = result.user;
-  
-        if (!user) {
-          console.error("Échec de la connexion via Google.");
-          return;
-        }
-  
-        console.log("Utilisateur connecté avec succès via Google :", user.email);
-  
-        // Mise à jour des informations du profil utilisateur si nécessaire
-        const name = user.displayName || "Utilisateur";
-        await updateProfile(user, { displayName: name });
-        console.log("Profil utilisateur mis à jour :", name);
-      } catch (error) {
-        console.error("Erreur lors de la connexion via Google :", error);
-        alert("Une erreur s'est produite lors de la connexion. Veuillez réessayer.");
-        return;
-      }
-    }
-  
+ const BuyBook = async (book) => {
+  const auth = getAuth();
+  let user = auth.currentUser;
+
+  // 1. Gestion de l'authentification
+  if (!user) {
     try {
-      // 1. Préparer l'ID du livre pour le paiement
-      let bookId = book.id.replace(/ /g, '_');
-      console.log("ID du livre préparé pour le paiement :", bookId);
-  
-      // 2. Générer le lien de paiement
-      const formData = new FormData();
-      formData.append('email',  "papers@seeds.cm"); // Utiliser l'email de l'utilisateur connecté
-      formData.append('token_app', '4fda55961a3152c09d67ede0d8ae2be9');
-      formData.append('montant', book.price.toString());
-      formData.append('image_link', book.coverUrl);
-      formData.append('description', 'Papers est une application mobile innovante pour les auteurs.');
-      formData.append('pass', 'My$S3cr3t$Pap3rs'); // À éviter en production
-      formData.append('success_lien', `https://papersweb.vercel.app/success/:bookId=${bookId}&userId=${user.uid}`);
-      formData.append('echec_lien', 'https://papers.seeds.cm/payementspage/echec.html');
-      formData.append('code_produit', bookId);
-      formData.append('nom_produit', book.name);
-  
-      console.log("Données envoyées pour le paiement :", Object.fromEntries(formData));
-  
-      const response = await axios.post(
-        'https://www.flash.seeds.cm/flash/Service/set_payment_link',
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        }
-      );
-  
-      console.log("Réponse reçue du serveur :", response);
-  
-      const contentType = response.headers['content-type'];
-      if (contentType && contentType.includes('application/json')) {
-        const data = response.data;
-        console.log("Données JSON reçues :", data);
-  
-        const { lien_paiement } = data.body;
-        console.log("Lien de paiement récupéré :", lien_paiement);
-  
-        const lien_paiement_base64 = btoa(lien_paiement);
-        console.log("Lien de paiement encodé en base64 :", lien_paiement_base64);
-  
-        // 3. Rediriger vers le lien de paiement
-        window.location.href = `https://flashsdk.seeds.cm/flash_checkout.html?d=${lien_paiement_base64}`;
-        console.log("Redirection vers le lien de paiement en cours...");
-      } else {
-        const htmlContent = response.data;
-        const newWindow = window.open();
-        newWindow.document.write(htmlContent);
-        console.log("Ouverture du contenu HTML dans un nouvel onglet.");
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      user = result.user;
+      
+      if (!user) {
+        throw new Error("Connexion échouée");
       }
     } catch (error) {
-      console.error('Erreur lors de la création du lien de paiement :', error);
-      alert("Une erreur s'est produite lors de l'achat. Veuillez réessayer.");
+      console.error("Erreur de connexion:", error);
+      throw new Error("Veuillez vous connecter pour acheter");
     }
-  };
+  }
+
+  try {
+    // 2. Préparation des paramètres
+    const bookId = encodeURIComponent(book.id);
+    const userId = encodeURIComponent(user.uid);
+
+    // 3. Construction du FormData
+    const formData = new FormData();
+    formData.append('email',"papers@seeds.cm");
+    formData.append('token_app', '4fda55961a3152c09d67ede0d8ae2be9');
+    formData.append('montant', book.price.toString());
+    formData.append('image_link', book.coverUrl);
+    formData.append('description', `Achat: ${book.name}`);
+    formData.append('pass', 'My$S3cr3t$Pap3rs'); // À sécuriser en production
+    formData.append('success_lien', `https://papersweb.vercel.app/success/${bookId}/${userId}`);
+    formData.append('echec_lien', 'https://papers.seeds.cm/payementspage/echec.html');
+    formData.append('code_produit', book.id);
+    formData.append('nom_produit', book.name);
+
+    // 4. Envoi de la requête
+    const response = await axios.post(
+      'https://www.flash.seeds.cm/flash/Service/set_payment_link',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    // 5. Traitement de la réponse
+    if (response.data?.body?.lien_paiement) {
+      const paymentUrl = response.data.body.lien_paiement;
+      window.location.href = `https://flashsdk.seeds.cm/flash_checkout.html?d=${btoa(paymentUrl)}`;
+    } else {
+      throw new Error("Réponse inattendue du serveur de paiement");
+    }
+
+  } catch (error) {
+    console.error("Erreur de paiement:", error);
+    throw new Error(error.response?.data?.message || "Échec du processus de paiement");
+  }
+};
 
   if (loading) {
     return (
