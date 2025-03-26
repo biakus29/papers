@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-
-  getDocs, 
-
+  getDocs,
+  doc,
   collection,
-  
   query,
-  where 
+  where,
+  updateDoc,
+  arrayUnion,
+  increment,
+  addDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -27,10 +30,10 @@ const SuccessPage = () => {
   
         const decodedBookId = decodeURIComponent(bookId);
   
-        // Recherche du document via le champ "id"
+        // Recherche du document du livre via le champ "id"
         const livresRef = collection(db, 'livres');
         const q = query(livresRef, where('id', '==', decodedBookId));
-        const querySnapshot = await getDocs(q)
+        const querySnapshot = await getDocs(q);
   
         if (querySnapshot.empty) {
           throw new Error('Livre non trouvé');
@@ -39,7 +42,50 @@ const SuccessPage = () => {
         // On suppose qu'il n'y a qu'un seul document correspondant
         const bookDoc = querySnapshot.docs[0];
         const bookData = bookDoc.data();
-        // ... suite du traitement
+  
+        // Préparer l'identifiant unique de la transaction
+        const transactionId = `TX-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  
+        // Références Firestore
+        const userRef = doc(db, 'users', userId);
+        const authorRef = doc(db, 'auteurs', bookData.hauteur);
+  
+        // Opérations Firestore :
+        // 1. Mise à jour de l'utilisateur : ajout de l'ID du livre dans "buyed" et dans "purchasedBooks"
+        const updateUserPromise = updateDoc(userRef, {
+          buyed: arrayUnion(decodedBookId),
+          [`purchasedBooks.${decodedBookId}`]: true
+        });
+  
+        // 2. Incrémentation du solde de l'auteur
+        const updateAuthorPromise = updateDoc(authorRef, {
+          solde: increment(Number(bookData.price))
+        });
+  
+        // 3. Ajout d'un document dans "ventes_direct"
+        const venteData = {
+          user: userId,
+          auteur: bookData.hauteur,
+          livre: decodedBookId,
+          prix: Number(bookData.price),
+          date: serverTimestamp(),
+          etat: 'réussi', // ou "en cours" selon ta logique
+          moyen: 'OM',
+          transactionId: transactionId
+        };
+        const addVentePromise = addDoc(collection(db, 'ventes_direct'), venteData);
+  
+        // Exécuter les opérations en parallèle
+        await Promise.all([updateUserPromise, updateAuthorPromise, addVentePromise]);
+  
+        // Stocker les informations pour l'affichage
+        setTransactionInfo({
+          bookTitle: bookData.name,
+          price: bookData.price,
+          transactionId: transactionId,
+          authorName: bookData.hauteur // Remplace par le nom de l'auteur si disponible
+        });
+  
       } catch (err) {
         console.error("Erreur de traitement:", err);
         setError(err.message);
@@ -49,9 +95,8 @@ const SuccessPage = () => {
     };
   
     processTransaction();
-  }, [bookId, userId]);
+  }, [bookId, userId, navigate]);
   
-
   if (loading) {
     return (
       <div className="loading-container">
@@ -86,7 +131,7 @@ const SuccessPage = () => {
       </div>
     );
   }
-
+  
   if (error) {
     return (
       <div className="error-container">
@@ -138,7 +183,7 @@ const SuccessPage = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="success-container">
       <div className="success-card">
@@ -155,7 +200,7 @@ const SuccessPage = () => {
             Référence : {transactionInfo?.transactionId}
           </p>
         </div>
-
+  
         <div className="buttons">
           <button 
             className="btn primary" 
@@ -170,12 +215,12 @@ const SuccessPage = () => {
             Retour à l'accueil
           </button>
         </div>
-
+  
         <div className="footer">
           <p>Un problème ? <a href="mailto:support@papers.cm">Contactez-nous</a></p>
         </div>
       </div>
-
+  
       <style jsx>{`
         .success-container {
           min-height: 100vh;
