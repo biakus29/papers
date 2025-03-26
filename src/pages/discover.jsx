@@ -367,13 +367,16 @@ export default function DiscoverScreen() {
         zIndex: 1000
       }}>
          <button onClick={() => navigate('/homes')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
-           <Home size={24} color='#0cc0df' />
-           <p style={{ color: '#0cc0df', fontSize: 11 }}>Accueil</p>
+           <Home size={24} color='#000' />
+           <p style={{ color: '#000', fontSize: 11 }}>Accueil</p>
          </button>
-         <button onClick={() => navigate('/discover')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
-           <Compass size={24} />
-           <p style={{ color: '#000', fontSize: 11 }}>Découvrez</p>
-         </button>
+       <button 
+                 onClick={() => navigate('/discover')} 
+                 style={{ alignItems: 'center', flex: 1, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'center' }}
+               >
+                 <Compass size={24} color='#0cc0df' />
+                 <p style={{ color: '#0cc0df', fontSize: 11 }}>Découvrez</p>
+               </button>
          <button 
            onClick={() => {
              if (isUserLoggedIn) {
