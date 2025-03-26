@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  doc, 
+
   getDoc, 
-  updateDoc, 
-  arrayUnion, 
-  increment,
-  addDoc,
+
   collection,
-  serverTimestamp 
+  
+  query,
+  where 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -31,7 +30,7 @@ const SuccessPage = () => {
         // Recherche du document via le champ "id"
         const livresRef = collection(db, 'livres');
         const q = query(livresRef, where('id', '==', decodedBookId));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDoc(q);
   
         if (querySnapshot.empty) {
           throw new Error('Livre non trouvé');
