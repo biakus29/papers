@@ -46,49 +46,52 @@ const SuccessPage = () => {
         const bookData = bookDoc.data();
         const transactionId = `TX-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
-        // 2. Transaction atomique pour toutes les opérations
+        // 2. Transaction atomique
         await runTransaction(db, async (transaction) => {
           // Références
           const userRef = doc(db, 'users', userId);
           const authorRef = doc(db, 'auteurs', bookData.hauteur);
           const venteRef = doc(collection(db, 'ventes_direct'));
 
-          // Lecture des données actuelles
+          // Lecture des données
           const [userSnap, authorSnap] = await Promise.all([
-            getDoc(userRef),
-            getDoc(authorRef)
+            transaction.get(userRef),
+            transaction.get(authorRef)
           ]);
 
           // Validation
-          if (!userSnap.exists() || !authorSnap.exists()) {
-            throw new Error('Utilisateur ou auteur introuvable');
+          if (!userSnap.exists()) {
+            throw new Error(`Utilisateur ${userId} non trouvé`);
           }
 
-          const amount = Number(bookData.price);
-          if (isNaN(amount)) {
+          if (!authorSnap.exists()) {
+            throw new Error(`Auteur ${bookData.hauteur} non trouvé. Vérifiez que l'auteur existe dans la collection /auteurs`);
+          }
+
+          const amount = parseFloat(bookData.price);
+          if (isNaN(amount) || amount <= 0) {
             throw new Error(`Prix invalide: ${bookData.price}`);
           }
 
           // Vérification des doublons
-          const existingTx = authorSnap.data().transactions?.some(
-            tx => tx.transactionId === transactionId
-          );
-
-          if (existingTx) {
+          const authorData = authorSnap.data();
+          const hasExistingTx = authorData.transactions?.some(tx => tx.transactionId === transactionId);
+          if (hasExistingTx) {
             throw new Error('Transaction déjà existante');
           }
 
-          // Calculs
-          const currentBalance = authorSnap.data().solde || 0;
+          // Calcul du nouveau solde
+          const currentBalance = parseFloat(authorData.solde) || 0;
           const newBalance = currentBalance + amount;
 
-          // Mises à jour
+          // Mise à jour de l'utilisateur
           transaction.update(userRef, {
             buyed: arrayUnion(decodedBookId),
             [`purchasedBooks.${decodedBookId}`]: true,
             lastPurchase: serverTimestamp()
           });
 
+          // Mise à jour de l'auteur - Version optimisée pour votre structure
           transaction.update(authorRef, {
             solde: newBalance,
             transactions: arrayUnion({
@@ -99,25 +102,28 @@ const SuccessPage = () => {
               bookId: decodedBookId,
               userId,
               transactionId,
-              type: "sale"
+              type: "sale",
+              bookTitle: bookData.name // Ajout du titre du livre
             }),
             "metadata.lastUpdated": serverTimestamp(),
             "metadata.totalSales": increment(1)
           });
 
+          // Création de la vente
           transaction.set(venteRef, {
             user: userId,
             auteur: bookData.hauteur,
             livre: decodedBookId,
             prix: amount,
             date: serverTimestamp(),
-            etat: 'reussi',
+            etat: 'reussi', 
             moyen: 'OM',
-            transactionId
+            transactionId,
+            bookTitle: bookData.name // Ajout pour traçabilité
           });
         });
 
-        // Stockage des infos pour l'affichage
+        // Affichage des infos
         setTransactionInfo({
           bookTitle: bookData.name,
           price: bookData.price,
@@ -126,8 +132,13 @@ const SuccessPage = () => {
         });
 
       } catch (err) {
-        console.error("Erreur de traitement:", err);
-        setError(err.message || 'Une erreur est survenue');
+        console.error("Erreur de transaction:", {
+          error: err.message,
+          bookId,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+        setError(err.message || 'Erreur lors du traitement de la transaction');
       } finally {
         setLoading(false);
       }
@@ -135,7 +146,6 @@ const SuccessPage = () => {
 
     processTransaction();
   }, [bookId, userId, navigate]);
-
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
