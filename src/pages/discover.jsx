@@ -6,7 +6,7 @@ import { Spinner, Container, Row, Col, Card } from 'react-bootstrap';
 import logo from './assets/images/logo.png';
 import './assets/css/DiscoverScreen.css';
 import SearchBar from './SearchBar';
-import { Home, Compass, Bookmark } from 'react-feather';
+import { Home, Compass, Bookmark, BookOpen } from 'react-feather';
 
 export default function DiscoverScreen() {
   const [categoriesBook, setCategoriesBook] = useState([]);
@@ -370,12 +370,17 @@ export default function DiscoverScreen() {
            <Home size={24} color='#000' />
            <p style={{ color: '#000', fontSize: 11 }}>Accueil</p>
          </button>
+             
        <button 
                  onClick={() => navigate('/discover')} 
                  style={{ alignItems: 'center', flex: 1, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'center' }}
                >
                  <Compass size={24} color='#0cc0df' />
                  <p style={{ color: '#0cc0df', fontSize: 11 }}>Découvrez</p>
+         </button>
+         <button onClick={() => navigate('/biblio')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
+                 <BookOpen size={24} color='#000' />
+                 <p style={{ color: '#000',fontSize:11 }}>bibliothèque</p>
                </button>
          <button 
            onClick={() => {

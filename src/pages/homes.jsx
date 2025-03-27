@@ -5,7 +5,7 @@ import { Carousel, Spinner, Button, ListGroup, Container } from 'react-bootstrap
 import './assets/css/stylehome.css';
 import { collection, getDocs } from 'firebase/firestore';
 import logo from './assets/images/logo.png';
-import { Home, Compass, Bookmark  } from 'react-feather'
+import { Home, Compass, Bookmark, BookOpen  } from 'react-feather'
 
 
 
@@ -18,9 +18,7 @@ export default function Homes() {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const isUserLoggedIn = Boolean(auth.currentUser);
-  const navigateToLogin = () => {
-    window.location.href = '/login'; // Chemin de votre page de connexion
-  };
+
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -94,35 +92,7 @@ export default function Homes() {
 
   return (
     <div className="banner">
-      {/* <nav className={`navbar navbar-expand-lg ${navbarVisible ? '' : 'hidden'}`}>
-        <a className="navbar-brand" href="/">
-          <img src={logo} alt="Logo de l'application" className="rounded-circle" />
-        </a>
-        <button 
-          className="navbar-toggler" 
-          type="button" 
-          data-bs-toggle="collapse" 
-          data-bs-target="#navbarNav" 
-          aria-controls="navbarNav" 
-          aria-expanded="false" 
-          aria-label="Toggle navigation"
-        >
-          <span className="navbar-toggler-icon"></span>
-        </button>
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav ms-auto">
-            <li className="nav-item">
-              <a className="nav-link active" href="./homes">Accueil</a>
-            </li>
-            <li className="nav-item">
-              <a className="nav-link" href="/discover">Découvrez</a>
-            </li>
-            <li className="nav-item">
-              <a className="nav-link" href="/biblio">Bibliothèque</a>
-            </li>
-          </ul>
-        </div>
-      </nav> */}
+     
       <nav style={{
         height: 70, 
         alignItems: 'center', 
@@ -227,9 +197,14 @@ export default function Homes() {
         <Home size={24} color='#0cc0df' />
         <p style={{ color: '#0cc0df',fontSize:11 }}>Accueil</p>
       </button>
+      
       <button onClick={() => navigate('/discover')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
         <Compass size={24} />
         <p style={{ color: '#000',fontSize:11 }}>Découvrez</p>
+      </button>
+      <button onClick={() => navigate('/biblio')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
+        <BookOpen size={24} color='#000' />
+        <p style={{ color: '#000',fontSize:11 }}>bibliothèque</p>
       </button>
       <button 
   onClick={() => {
@@ -246,6 +221,7 @@ export default function Homes() {
   <Bookmark size={24} />
   <p style={{ color: '#000', fontSize: 11 }}>profile</p>
 </button>
+
     </div>
 
     {showModal && (

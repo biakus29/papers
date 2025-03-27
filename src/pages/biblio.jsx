@@ -12,7 +12,7 @@ import { Button, Modal, Image, ProgressBar } from 'react-bootstrap';
 import { onAuthStateChanged } from 'firebase/auth';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import logo from './assets/images/logo.png';
-import { Home, Compass, Bookmark } from 'react-feather';
+import { Home, Compass, Bookmark,BookOpen } from 'react-feather';
 
 export default function Bibliothèque() {
   const { sharedState } = useAppContext();
@@ -23,6 +23,7 @@ export default function Bibliothèque() {
   const [userPurchasedBooks, setUserPurchasedBooks] = useState([]);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const isUserLoggedIn = Boolean(auth.currentUser);
   
   // Loader personnalisé avec logo
   const Loader = () => (
@@ -150,39 +151,48 @@ export default function Bibliothèque() {
 
       {/* Bottom Navigation */}
       <div style={{
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        display: 'flex', 
-        justifyContent: 'space-around', 
-        padding: '1rem', 
-        backgroundColor: '#f8f9fa',
-        boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)',
-        zIndex: 9999
-      }}>
-        <button 
-          onClick={() => navigate('/homes')} 
-          style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'center' }}
-        >
-          <Home size={24} color='#000' />
-          <p style={{ color: '#000', fontSize: 11, margin: 0 }}>Accueil</p>
-        </button>
-        <button 
-          onClick={() => navigate('/discover')} 
-          style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'center' }}
-        >
-          <Compass size={24} color='#000' />
-          <p style={{ color: '#000', fontSize: 11, margin: 0 }}>Découvrez</p>
-        </button>
-        <button 
-          onClick={() => navigate('/bibliotheque')} 
-          style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'center' }}
-        >
-          <Bookmark size={24} color='#000' />
-          <p style={{ color: '#000', fontSize: 11, margin: 0 }}>Bibliothèque</p>
-        </button>
-      </div>
+      padding: "10px 0",
+      display: 'flex',
+      justifyContent: 'space-between',
+      borderTopColor: '#E0E0E0',
+      backgroundColor: '#f0f0f0',
+      position: 'fixed',  // Ajout de la position fixe
+      bottom: 0,          // Alignement en bas
+      left: 0,           // Alignement à gauche
+      right: 0,          // Alignement à droite
+      zIndex: 1000       // Pour s'assurer que ça soit au-dessus d'autres éléments
+    }}>
+      <button onClick={() => navigate('/homes')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
+        <Home size={24} color='#000' />
+        <p style={{ color: '#000',fontSize:11 }}>Accueil</p>
+      </button>
+      
+      <button onClick={() => navigate('/discover')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
+        <Compass size={24} />
+        <p style={{ color: '#000',fontSize:11 }}>Découvrez</p>
+      </button>
+      <button onClick={() => navigate('/biblio')} style={{ alignItems: 'center', flex: 1, border: 'none' }}>
+        <BookOpen size={24} color='#0cc0df' />
+        <p style={{ color: '#0cc0df',fontSize:11 }}>bibliothèque</p>
+      </button>
+      <button 
+  onClick={() => {
+    if (isUserLoggedIn) {
+      // Redirection vers le Play Store
+      navigate('/profile');
+    } else {
+      // Redirection vers la page de connexion
+      navigate('/login')
+    }
+  }} 
+  style={{ alignItems: 'center', flex: 1, border: 'none', background: 'none', cursor: 'pointer' }}
+>
+  <Bookmark size={24} />
+  <p style={{ color: '#000', fontSize: 11 }}>profile</p>
+</button>
+
+    </div>
+
     </div>
   );
 }

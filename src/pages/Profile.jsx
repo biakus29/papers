@@ -1,11 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Image, Button, Alert, Spinner, Card, Tabs, Tab, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Image, Button, Alert, Spinner, Card, Tabs, Tab, Badge, Modal } from 'react-bootstrap';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { FaChevronLeft, FaHome, FaCompass, FaBookmark, FaPlus, FaQuestionCircle } from 'react-icons/fa';
+
+const SafeImage = ({ src, alt, ...props }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      onError={() => setImgSrc('https://via.placeholder.com/150')}
+      {...props}
+    />
+  );
+};
 
 const Profile = () => {
   const { setSharedState } = useAppContext();
@@ -16,13 +29,13 @@ const Profile = () => {
   const [transactions, setTransactions] = useState([]);
   const [visibleTransactions, setVisibleTransactions] = useState(5);
   const [activeTab, setActiveTab] = useState('all');
+  const [showEnCoursModal, setShowEnCoursModal] = useState(false);
+  const [selectedEnCoursTransaction, setSelectedEnCoursTransaction] = useState(null);
 
-  // Fonction pour charger plus de transactions
   const loadMoreTransactions = () => {
     setVisibleTransactions(prev => prev + 5);
   };
 
-  // Fonction pour déterminer la couleur du badge selon le statut
   const getStatusBadgeColor = (status) => {
     switch(status) {
       case 'en cours':
@@ -36,7 +49,6 @@ const Profile = () => {
     }
   };
 
-  // Récupération des informations utilisateur depuis Firebase
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -73,8 +85,7 @@ const Profile = () => {
     try {
       const q = query(
         collection(db, "ventes_direct"), 
-        where("user", "==", userId),
-        // orderBy("date", "desc")
+        where("user", "==", userId)
       );
       const querySnapshot = await getDocs(q);
 
@@ -82,10 +93,8 @@ const Profile = () => {
         querySnapshot.docs.map(async (docSnap) => {
           const transac = { id: docSnap.id, ...docSnap.data() };
 
-          // Formatage des données
           transac.moyen = transac.moyen === "_" ? "Non spécifié" : transac.moyen;
           
-          // Conversion de la date
           if (transac.date && typeof transac.date.toDate === 'function') {
             transac.formattedDate = transac.date.toDate().toLocaleString('fr-FR', {
               day: 'numeric',
@@ -98,23 +107,35 @@ const Profile = () => {
             transac.formattedDate = "Date non disponible";
           }
 
-          // Récupération du nom et image du livre
           if (transac.livre) {
-            const livreRef = doc(db, "livres", transac.livre);
-            const livreSnap = await getDoc(livreRef);
-
-            if (livreSnap.exists()) {
-              transac.nomLivre = livreSnap.data().name || "Livre sans nom";
-              transac.imageLivre = livreSnap.data().image || 'https://via.placeholder.com/60';
-            } else {
-              transac.nomLivre = "Livre inconnu";
+            try {
+              const livreRef = doc(db, "livres", transac.livre);
+              const livreSnap = await getDoc(livreRef);
+              
+              if (livreSnap.exists()) {
+                const livreData = livreSnap.data();
+                transac.nomLivre = livreData.name || livreData.titre || "Livre sans nom";
+                transac.imageLivre = livreData.image || 
+                                   livreData.coverUrl || 
+                                   livreData.cover || 
+                                   'https://via.placeholder.com/60';
+                
+                if (transac.imageLivre && !transac.imageLivre.startsWith('http')) {
+                  transac.imageLivre = 'https://via.placeholder.com/60';
+                }
+              } else {
+                transac.nomLivre = "Livre inconnu";
+                transac.imageLivre = 'https://via.placeholder.com/60';
+              }
+            } catch (error) {
+              console.error("Erreur lors de la récupération du livre:", error);
+              transac.nomLivre = "Erreur de chargement";
               transac.imageLivre = 'https://via.placeholder.com/60';
             }
           } else {
             transac.nomLivre = "ID livre manquant";
             transac.imageLivre = 'https://via.placeholder.com/60';
           }
-
           return transac;
         })
       );
@@ -126,19 +147,21 @@ const Profile = () => {
     }
   };
 
-  // Extraction des statuts uniques dans les transactions
   const uniqueStatuses = Array.from(new Set(transactions.map(t => t.etat)));
 
-  // Filtrage des transactions en fonction du statut
   const filterTransactionsByStatus = (status) => {
     if (status === 'all') return transactions;
     return transactions.filter(t => t.etat === status);
   };
 
-  // Fonction pour obtenir les transactions visibles (limitée par visibleTransactions)
   const getVisibleTransactions = (status) => {
     const filtered = filterTransactionsByStatus(status);
     return filtered.slice(0, visibleTransactions);
+  };
+
+  const handleEnCoursClick = (transac) => {
+    setSelectedEnCoursTransaction(transac);
+    setShowEnCoursModal(true);
   };
 
   if (loading) {
@@ -167,7 +190,6 @@ const Profile = () => {
 
   return (
     <Container fluid className="px-3" style={{ maxWidth: '500px' }}>
-      {/* Header */}
       <Row className="pt-3 align-items-center">
         <Col xs={2}>
           <Button variant="link" onClick={() => navigate('/homes')}>
@@ -184,10 +206,9 @@ const Profile = () => {
         </Col>
       </Row>
 
-      {/* Profil utilisateur */}
       <Card className="mt-3 shadow-sm">
         <Card.Body className="text-center">
-          <Image 
+          <SafeImage 
             src={user.image || 'https://via.placeholder.com/120'} 
             roundedCircle 
             width={120} 
@@ -200,7 +221,6 @@ const Profile = () => {
         </Card.Body>
       </Card>
 
-      {/* Navigation secondaire */}
       <Row className="mt-4 text-center">
         <Col>
           <Button variant="light" onClick={() => navigate('/homes')} className="w-100">
@@ -222,34 +242,32 @@ const Profile = () => {
         </Col>
       </Row>
 
-      {/* Séparateur */}
       <hr className="my-4" />
 
-      {/* Transactions regroupées par statut */}
       <Row>
         <Col xs={12}>
           <h6 className="mb-3">Mes Transactions :</h6>
-
           <Tabs defaultActiveKey="all" id="transaction-tabs" className="mb-3">
-            {/* Onglet "Tous" */}
             <Tab eventKey="all" title="Tous">
               {getVisibleTransactions("all").length > 0 ? (
                 <>
                   {getVisibleTransactions("all").map((transac) => (
-                    <Card key={transac.id} className="mb-3 shadow-sm">
+                    <Card 
+                      key={transac.id} 
+                      className="mb-3 shadow-sm"
+                      onClick={() => transac.etat === "en cours" && handleEnCoursClick(transac)}
+                      style={{ cursor: transac.etat === "en cours" ? "pointer" : "default" }}
+                    >
                       <Card.Body className="p-2">
                         <Row className="align-items-center">
-                          {/* Image du livre */}
                           <Col xs={3} className="pe-0">
-                            <Image 
+                            <SafeImage 
                               src={transac.imageLivre} 
                               rounded 
                               fluid 
                               style={{ width: '60px', height: '80px', objectFit: 'cover' }}
                             />
                           </Col>
-                          
-                          {/* Détails de la transaction */}
                           <Col xs={9}>
                             <Row>
                               <Col xs={8} className="fw-bold text-truncate">
@@ -261,13 +279,11 @@ const Profile = () => {
                                 </Badge>
                               </Col>
                             </Row>
-                            
                             <Row className="mt-1">
                               <Col xs={12} className="text-muted small">
                                 {transac.formattedDate}
                               </Col>
                             </Row>
-                            
                             <Row className="align-items-center mt-2">
                               <Col xs={6} className="fw-bold text-success">
                                 {transac.prix} FCFA
@@ -283,7 +299,6 @@ const Profile = () => {
                       </Card.Body>
                     </Card>
                   ))}
-                  
                   {transactions.length > visibleTransactions && (
                     <div className="text-center mt-3">
                       <Button variant="outline-primary" onClick={loadMoreTransactions}>
@@ -297,17 +312,21 @@ const Profile = () => {
               )}
             </Tab>
 
-            {/* Onglets dynamiques pour chaque statut */}
             {uniqueStatuses.map((status) => (
               <Tab key={status} eventKey={status} title={status}>
                 {getVisibleTransactions(status).length > 0 ? (
                   <>
                     {getVisibleTransactions(status).map((transac) => (
-                      <Card key={transac.id} className="mb-3 shadow-sm">
+                      <Card 
+                        key={transac.id} 
+                        className="mb-3 shadow-sm"
+                        onClick={() => transac.etat === "en cours" && handleEnCoursClick(transac)}
+                        style={{ cursor: transac.etat === "en cours" ? "pointer" : "default" }}
+                      >
                         <Card.Body className="p-2">
                           <Row className="align-items-center">
                             <Col xs={3} className="pe-0">
-                              <Image 
+                              <SafeImage 
                                 src={transac.imageLivre} 
                                 rounded 
                                 fluid 
@@ -362,7 +381,6 @@ const Profile = () => {
         </Col>
       </Row>
 
-      {/* Appels à l'action */}
       <Row className="mt-4">
         <Col xs={12} className="mb-3">
           <Card 
@@ -389,6 +407,41 @@ const Profile = () => {
           </Card>
         </Col>
       </Row>
+
+      <Modal show={showEnCoursModal} onHide={() => setShowEnCoursModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Transaction en cours</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Vous avez essayé d'acheter le livre "<strong>{selectedEnCoursTransaction?.nomLivre}</strong>".
+          </p>
+          <p>Que souhaitez-vous faire ?</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEnCoursModal(false)}>
+            Annuler le paiement
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowEnCoursModal(false);
+            navigate('/details', { 
+              state: { 
+                bookId: selectedEnCoursTransaction?.livre,
+                bookTitle: selectedEnCoursTransaction?.nomLivre,
+                bookImage: selectedEnCoursTransaction?.imageLivre
+              } 
+            });
+          }}>
+            Poursuivre le paiement
+          </Button>
+          <Button variant="warning" onClick={() => {
+            alert("Votre réclamation a été envoyée. Merci de votre patience.");
+            setShowEnCoursModal(false);
+          }}>
+            Réclamation
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };

@@ -1,0 +1,247 @@
+import React, { useState } from 'react';
+import { WebView } from 'react-native-webview';
+import { View, ActivityIndicator, Modal, Text, StyleSheet, Button } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useAppContext } from '../AppContext';
+import firestore from '@react-native-firebase/firestore';
+import Toast from 'react-native-root-toast';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+
+
+
+
+const PaymentWebView = ({ route }) => {
+  const { paymentUrl, htmlContent, book } = route.params;
+  const navigation = useNavigation();
+  const { sharedState } = useAppContext();
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  // Fonction déclenchée lors du changement d'URL
+  const handleNavigationChange = async (navState) => {
+    const { url } = navState;
+
+    function getQueryParam(url, param) {
+      const paramsString = url.split('?')[1];
+      if (!paramsString) return null;
+    
+      const params = paramsString.split('&');
+      for (const p of params) {
+        const [key, value] = p.split('=');
+        if (key === param) {
+          return decodeURIComponent(value);
+        }
+      }
+      return null;
+    }
+  
+    if (url.startsWith('https://silly-babka-5c39a4.netlify.app/pages/succes.html')) {
+      // Naviguer vers l'écran 'fav' si la condition est remplie
+      
+  
+      const currentUser = sharedState.user; // Utilisateur actuel depuis le contexte
+      let bookId = book.id; // ID du livre acheté
+      bookId = bookId.replace(/ /g, '_');
+      const bookPrice = book.price; // Prix du livre
+      const authorId = book.hauteur;
+      const user = sharedState.user;
+  
+      try {
+        console.log('URL :', url);
+  
+        // 1) Récupérer l'id_transaction de l'URL (par ex. ?id_trx_ext=12345)
+        const id_transaction = getQueryParam(url, 'id_trx_ext'); // Extraire la variable "id_trx_ext"
+        console.log('ID de transaction externe :', id_transaction);
+  
+        // 2) Vérifier si une transaction avec cet 'id_transaction' existe déjà
+        const existingTransactionQuery = await firestore()
+          .collection('ventes_direct')
+          .where('id_transaction', '==', id_transaction)
+          .get();
+  
+        if (!existingTransactionQuery.empty) {
+          console.log('Cette transaction existe déjà. Aucun doublon créé.');
+          return; // Ne rien faire si la transaction existe déjà
+        }
+  
+        // Si la transaction n'existe pas, continuer le processus
+  
+        // 3) Mettre à jour l'utilisateur avec l'ID du livre acheté
+        const userRef = firestore().collection('users').doc(currentUser.uid);
+        await userRef.update({
+          buyed: firestore.FieldValue.arrayUnion(bookId)
+        });
+  
+        // 4) Vérifier si une vente avec le même bookId + user.uid existe déjà
+        const ventesRef = firestore().collection('ventes_direct');
+        const existingVenteQuery = await ventesRef.where('id', '==', bookId + user.uid).get();
+  
+        if (existingVenteQuery.empty) {
+          // Si aucune vente avec cet id n'est trouvée, on ajoute la nouvelle vente
+
+          const existingVenteQuerySnapshot = await firestore()
+          .collection('ventes_direct')
+          .where('id_transaction', '==', id_transaction)
+          .get();
+
+          if (existingVenteQuerySnapshot.empty) {
+            const venteData = {
+              user: user.uid,
+              auteur: authorId,
+              date: new Date(),
+              livre: bookId,
+              moyen: "OM",
+              prix: bookPrice,
+              id_transaction, // Ajouter l'ID de la transaction externe
+              etat: "reussi"  // Ajouter l'état de la transaction
+            };
+      
+            // Ajouter la nouvelle vente à Firestore
+            await firestore().collection('ventes_direct').add(venteData);
+            console.log("Nouvelle vente ajoutée avec succès !");
+          } else {
+            console.log("La vente avec cet id_transaction existe déjà. Aucun ajout effectué.");
+          }
+        } else {
+          // Si une vente avec cet id existe déjà, on met simplement à jour les champs
+          existingVenteQuery.forEach(async (doc) => {
+            await ventesRef.doc(doc.id).update({
+              date: new Date(),
+              moyen: "OM",
+              id_transaction: id_transaction,
+              etat: "reussi"
+            });
+          });
+  
+          console.log("Vente existante mise à jour avec succès !");
+  
+          const authorRef = firestore().collection('auteurs').doc(authorId);
+          // await authorRef.update({
+          //   solde: firestore.FieldValue.increment(bookPrice)
+          // });
+  
+          // 6) Récupérer le solde actuel et les transactions de l'auteur
+          const authorDoc = await authorRef.get();
+          const authorData = authorDoc.data();
+          const currentTransactions = authorData.transactions || []; // Transactions actuelles
+          const currentBalance = authorData.solde; // Solde actuel
+  
+          // 7) Vérifier s'il existe déjà une transaction avec le même id_transaction
+          const transactionExists = currentTransactions.some(
+            (transaction) => transaction.id_transaction === id_transaction
+          );
+  
+          if (!transactionExists) {
+            // 8) Créer la nouvelle transaction
+            const newBalance = Number(currentBalance) + Number(bookPrice);
+            const newTransaction = {
+              amount: Number(bookPrice),        
+              balance: newBalance,              
+              date: new Date(),                
+              type: "deposite",                 
+              id_transaction                   
+            };
+            // 9) Mettre à jour l'auteur en une seule opération
+            await authorRef.update({
+              solde: newBalance, // Mettre à jour le solde
+              transactions: firestore.FieldValue.arrayUnion(newTransaction) // Ajouter la nouvelle transaction
+            });
+          } else {
+            console.log("Transaction déjà existante. Pas d'ajout ni de modification du solde.");
+          }
+        }
+  
+        // Afficher un toast après l'exécution complète des instructions
+        Toast.show('Votre achat a été effectué avec succès', {
+          duration: Toast.durations.LONG,
+          position: Toast.positions.BOTTOM,
+          shadow: true,
+          animation: true,
+          hideOnPress: true,
+          delay: 0,
+        });
+
+        navigation.navigate('BookDetails', { book });
+  
+      } catch (error) {
+        console.error("Erreur lors de l'achat : ", error);
+      }
+    }
+    
+     else if (url.startsWith('https://silly-babka-5c39a4.netlify.app/pages/echec.html')) {
+      console.log("Echec payement")
+      navigation.navigate('fav');
+    } else if (url.startsWith('https://silly-babka-5c39a4.netlify.app/pages/transactions.html')) {
+      console.log("Echec payement")
+      navigation.navigate('profie');
+    }else if (url.startsWith('https://silly-babka-5c39a4.netlify.app/pages/mesLivres.html')) {
+      console.log("Echec payement")
+      navigation.navigate('fav');
+    }else {
+      console.log('URL actuelle : ', url);
+    }
+  };
+  
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* WebView */}
+      <View style={{ flex: 1 }}>
+        {paymentUrl ? (
+          <WebView 
+            source={{ uri: paymentUrl }} 
+            startInLoadingState={true} 
+            renderLoading={() => <ActivityIndicator size="large" />} 
+            onNavigationStateChange={handleNavigationChange} 
+          />
+        ) : (
+          <WebView 
+            originWhitelist={['*']}
+            source={{ html: htmlContent }} 
+            startInLoadingState={true} 
+            renderLoading={() => <ActivityIndicator size="large" />} 
+            onNavigationStateChange={handleNavigationChange} 
+          />
+        )}
+      </View>
+
+      {/* Bouton en bas */}
+      {/* <View style={{ padding: 10 }}>
+        <Button
+          title="Terminé"
+          onPress={() => navigation.navigate('fav')}
+          color={"#0cc0df"}
+        />
+      </View> */}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    padding: 20,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  button: {
+    width: '35%',
+    padding: 15,
+    backgroundColor: '#34C759',
+    borderRadius: 50,
+    alignItems: 'center',
+  },
+  buttonText: {
+    fontSize: 12,
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+})
+
+export default PaymentWebView;
