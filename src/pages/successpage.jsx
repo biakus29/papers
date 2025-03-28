@@ -8,8 +8,6 @@ import {
   where,
   updateDoc,
   arrayUnion,
-  getDoc,
-  addDoc,
   serverTimestamp,
   runTransaction
 } from 'firebase/firestore';
@@ -28,94 +26,93 @@ const SuccessPage = () => {
         if (!bookId || !userId) {
           throw new Error('Paramètres de transaction manquants');
         }
-  
+
         const decodedBookId = decodeURIComponent(bookId);
-        
-        // Générer un ID de transaction (comme côté mobile)
         const id_transaction = `TX-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-  
+
         // Recherche du livre
         const livresRef = collection(db, 'livres');
         const q = query(livresRef, where('id', '==', decodedBookId));
         const querySnapshot = await getDocs(q);
-  
+
         if (querySnapshot.empty) {
           throw new Error('Livre non trouvé');
         }
-  
+
         const bookDoc = querySnapshot.docs[0];
         const bookData = bookDoc.data();
-  
+
         // Références Firestore
         const userRef = doc(db, 'users', userId);
         const authorRef = doc(db, 'auteurs', bookData.hauteur);
-  
-        // UTILISEZ CE BLOC DE TRANSACTION CORRIGÉ À LA PLACE DE L'ANCIEN
+
+        // Transaction Firestore corrigée
         await runTransaction(db, async (transaction) => {
-          // PHASE DE LECTURE - Toutes les lectures d'abord
+          // 1. Vérifier si la transaction existe déjà
           const venteQuery = query(
             collection(db, 'ventes_direct'),
             where('id_transaction', '==', id_transaction)
           );
           const venteSnapshot = await getDocs(venteQuery);
           
+          // 2. Lire les documents nécessaires
           const userDoc = await transaction.get(userRef);
           const authorDoc = await transaction.get(authorRef);
-  
-          // VERIFICATIONS
+
           if (!venteSnapshot.empty) {
             throw new Error('Cette transaction existe déjà');
           }
-  
-          // PRÉPARATION DES DONNÉES
+
+          // 3. Préparer les données
           const authorData = authorDoc.data();
           const currentBalance = authorData.solde || 0;
           const newBalance = Number(currentBalance) + Number(bookData.price);
-          
+
+          // Utilisation de Date() au lieu de serverTimestamp() pour arrayUnion
           const newTransaction = {
             amount: Number(bookData.price),
             balance: newBalance,
-            date: serverTimestamp(),
+            date: new Date(), // Date client au lieu de serverTimestamp
             type: "deposit",
             id_transaction
           };
-  
-          // PHASE D'ÉCRITURE - Toutes les écritures ensuite
-          // 1. Mise à jour utilisateur
+
+          // 4. Mises à jour
+          // Mise à jour utilisateur
           transaction.update(userRef, {
             buyed: arrayUnion(decodedBookId),
             [`purchasedBooks.${decodedBookId}`]: true
           });
-  
-          // 2. Mise à jour auteur
+
+          // Mise à jour auteur
           transaction.update(authorRef, {
             solde: newBalance,
             transactions: arrayUnion(newTransaction)
           });
-  
-          // 3. Création de la vente
+
+          // Création de la vente (avec serverTimestamp autorisé ici)
           const venteRef = doc(collection(db, 'ventes_direct'));
           transaction.set(venteRef, {
             user: userId,
             auteur: bookData.hauteur,
             livre: decodedBookId,
             prix: Number(bookData.price),
-            date: serverTimestamp(),
+            date: serverTimestamp(), // OK car dans set()
             etat: 'reussi',
             moyen: 'OM',
             id_transaction,
             id: `${decodedBookId}_${userId}`
           });
         });
-  
-        // Stocker les informations pour l'affichage
+
+        // Affichage des informations
         setTransactionInfo({
           bookTitle: bookData.name,
           price: bookData.price,
           transactionId: id_transaction,
           authorName: bookData.hauteur
         });
-  
+
       } catch (err) {
         console.error("Erreur de traitement:", err);
         setError(err.message);
@@ -123,7 +120,7 @@ const SuccessPage = () => {
         setLoading(false);
       }
     };
-  
+
     processTransaction();
   }, [bookId, userId, navigate]);
   if (loading) {
