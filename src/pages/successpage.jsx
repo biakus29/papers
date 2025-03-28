@@ -50,35 +50,28 @@ const SuccessPage = () => {
         const userRef = doc(db, 'users', userId);
         const authorRef = doc(db, 'auteurs', bookData.hauteur);
   
-        // Utiliser une transaction Firestore pour garantir l'intégrité des données
+        // UTILISEZ CE BLOC DE TRANSACTION CORRIGÉ À LA PLACE DE L'ANCIEN
         await runTransaction(db, async (transaction) => {
-          // 1. Vérifier si la transaction existe déjà
+          // PHASE DE LECTURE - Toutes les lectures d'abord
           const venteQuery = query(
             collection(db, 'ventes_direct'),
             where('id_transaction', '==', id_transaction)
           );
           const venteSnapshot = await getDocs(venteQuery);
           
+          const userDoc = await transaction.get(userRef);
+          const authorDoc = await transaction.get(authorRef);
+  
+          // VERIFICATIONS
           if (!venteSnapshot.empty) {
             throw new Error('Cette transaction existe déjà');
           }
   
-          // 2. Vérifier si l'utilisateur a déjà acheté ce livre
-          const userDoc = await transaction.get(userRef);
-          const userData = userDoc.data();
-          
-          // Mise à jour de l'utilisateur
-          transaction.update(userRef, {
-            buyed: arrayUnion(decodedBookId),
-            [`purchasedBooks.${decodedBookId}`]: true
-          });
-  
-          // 3. Mise à jour de l'auteur avec historique des transactions
-          const authorDoc = await transaction.get(authorRef);
+          // PRÉPARATION DES DONNÉES
           const authorData = authorDoc.data();
-          
           const currentBalance = authorData.solde || 0;
           const newBalance = Number(currentBalance) + Number(bookData.price);
+          
           const newTransaction = {
             amount: Number(bookData.price),
             balance: newBalance,
@@ -86,14 +79,23 @@ const SuccessPage = () => {
             type: "deposit",
             id_transaction
           };
-          
+  
+          // PHASE D'ÉCRITURE - Toutes les écritures ensuite
+          // 1. Mise à jour utilisateur
+          transaction.update(userRef, {
+            buyed: arrayUnion(decodedBookId),
+            [`purchasedBooks.${decodedBookId}`]: true
+          });
+  
+          // 2. Mise à jour auteur
           transaction.update(authorRef, {
             solde: newBalance,
             transactions: arrayUnion(newTransaction)
           });
   
-          // 4. Création de l'enregistrement de vente
-          const venteData = {
+          // 3. Création de la vente
+          const venteRef = doc(collection(db, 'ventes_direct'));
+          transaction.set(venteRef, {
             user: userId,
             auteur: bookData.hauteur,
             livre: decodedBookId,
@@ -102,11 +104,8 @@ const SuccessPage = () => {
             etat: 'reussi',
             moyen: 'OM',
             id_transaction,
-            id: `${decodedBookId}_${userId}` // 
-          };
-          
-          const venteRef = collection(db, 'ventes_direct');
-          await addDoc(venteRef, venteData);
+            id: `${decodedBookId}_${userId}`
+          });
         });
   
         // Stocker les informations pour l'affichage
@@ -127,7 +126,6 @@ const SuccessPage = () => {
   
     processTransaction();
   }, [bookId, userId, navigate]);
-  
   if (loading) {
     return (
       <div className="loading-container">
