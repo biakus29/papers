@@ -58,53 +58,72 @@ const SuccessPage = () => {
           // 2. Lire les documents nécessaires
           const userDoc = await transaction.get(userRef);
           const authorDoc = await transaction.get(authorRef);
-
+        
           if (!venteSnapshot.empty) {
             throw new Error('Cette transaction existe déjà');
           }
-
-          // 3. Préparer les données
+        
+          // 3. Calcul des parts
+          const bookPrice = Number(bookData.price);
+          const authorShare = Math.round(bookPrice * 0.7); // 70% pour l'auteur (arrondi)
+          const platformShare = bookPrice - authorShare; // 30% pour la plateforme
+        
+          // 4. Préparer les données
           const authorData = authorDoc.data();
-          const currentBalance = authorData.solde || 0;
-          const newBalance = Number(currentBalance) + Number(bookData.price);
-
-          // Utilisation de Date() au lieu de serverTimestamp() pour arrayUnion
-          const newTransaction = {
-            amount: Number(bookData.price),
-            balance: newBalance,
-            date: new Date(), // Date client au lieu de serverTimestamp
+          const newAuthorBalance = (authorData.solde || 0) + authorShare;
+        
+          const newAuthorTransaction = {
+            amount: authorShare,
+            balance: newAuthorBalance,
+            date: new Date(),
             type: "deposit",
-            id_transaction
+            id_transaction,
+            fee: platformShare,
+            bookId: decodedBookId
           };
-
-          // 4. Mises à jour
+        
+          // 5. Mises à jour
           // Mise à jour utilisateur
           transaction.update(userRef, {
             buyed: arrayUnion(decodedBookId),
             [`purchasedBooks.${decodedBookId}`]: true
           });
-
+        
           // Mise à jour auteur
           transaction.update(authorRef, {
-            solde: newBalance,
-            transactions: arrayUnion(newTransaction)
+            solde: newAuthorBalance,
+            transactions: arrayUnion(newAuthorTransaction)
           });
-
-          // Création de la vente (avec serverTimestamp autorisé ici)
+        
+          // Enregistrement pour la plateforme
+          const platformRef = doc(collection(db, 'platform_earnings'));
+          transaction.set(platformRef, {
+            amount: platformShare,
+            bookId: decodedBookId,
+            authorId: bookData.hauteur,
+            userId: userId,
+            date: serverTimestamp(),
+            transactionId: id_transaction,
+            type: "book_sale",
+            originalPrice: bookPrice
+          });
+        
+          // Création de la vente
           const venteRef = doc(collection(db, 'ventes_direct'));
           transaction.set(venteRef, {
             user: userId,
             auteur: bookData.hauteur,
             livre: decodedBookId,
-            prix: Number(bookData.price),
-            date: serverTimestamp(), // OK car dans set()
+            prix: bookPrice,
+            authorEarnings: authorShare,
+            platformFee: platformShare,
+            date: serverTimestamp(),
             etat: 'reussi',
             moyen: 'OM',
             id_transaction,
             id: `${decodedBookId}_${userId}`
           });
         });
-
         // Affichage des informations
         setTransactionInfo({
           bookTitle: bookData.name,
