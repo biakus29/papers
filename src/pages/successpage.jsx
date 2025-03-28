@@ -8,9 +8,10 @@ import {
   where,
   updateDoc,
   arrayUnion,
-  increment,
+  getDoc,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -29,8 +30,11 @@ const SuccessPage = () => {
         }
   
         const decodedBookId = decodeURIComponent(bookId);
+        
+        // Générer un ID de transaction (comme côté mobile)
+        const id_transaction = `TX-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   
-        // Recherche du document du livre via le champ "id"
+        // Recherche du livre
         const livresRef = collection(db, 'livres');
         const q = query(livresRef, where('id', '==', decodedBookId));
         const querySnapshot = await getDocs(q);
@@ -39,51 +43,78 @@ const SuccessPage = () => {
           throw new Error('Livre non trouvé');
         }
   
-        // On suppose qu'il n'y a qu'un seul document correspondant
         const bookDoc = querySnapshot.docs[0];
         const bookData = bookDoc.data();
-  
-        // Préparer l'identifiant unique de la transaction
-        const transactionId = `TX-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   
         // Références Firestore
         const userRef = doc(db, 'users', userId);
         const authorRef = doc(db, 'auteurs', bookData.hauteur);
   
-        // Opérations Firestore :
-        // 1. Mise à jour de l'utilisateur : ajout de l'ID du livre dans "buyed" et dans "purchasedBooks"
-        const updateUserPromise = updateDoc(userRef, {
-          buyed: arrayUnion(decodedBookId),
-          [`purchasedBooks.${decodedBookId}`]: true
+        // Utiliser une transaction Firestore pour garantir l'intégrité des données
+        await runTransaction(db, async (transaction) => {
+          // 1. Vérifier si la transaction existe déjà
+          const venteQuery = query(
+            collection(db, 'ventes_direct'),
+            where('id_transaction', '==', id_transaction)
+          );
+          const venteSnapshot = await getDocs(venteQuery);
+          
+          if (!venteSnapshot.empty) {
+            throw new Error('Cette transaction existe déjà');
+          }
+  
+          // 2. Vérifier si l'utilisateur a déjà acheté ce livre
+          const userDoc = await transaction.get(userRef);
+          const userData = userDoc.data();
+          
+          // Mise à jour de l'utilisateur
+          transaction.update(userRef, {
+            buyed: arrayUnion(decodedBookId),
+            [`purchasedBooks.${decodedBookId}`]: true
+          });
+  
+          // 3. Mise à jour de l'auteur avec historique des transactions
+          const authorDoc = await transaction.get(authorRef);
+          const authorData = authorDoc.data();
+          
+          const currentBalance = authorData.solde || 0;
+          const newBalance = Number(currentBalance) + Number(bookData.price);
+          const newTransaction = {
+            amount: Number(bookData.price),
+            balance: newBalance,
+            date: serverTimestamp(),
+            type: "deposit",
+            id_transaction
+          };
+          
+          transaction.update(authorRef, {
+            solde: newBalance,
+            transactions: arrayUnion(newTransaction)
+          });
+  
+          // 4. Création de l'enregistrement de vente
+          const venteData = {
+            user: userId,
+            auteur: bookData.hauteur,
+            livre: decodedBookId,
+            prix: Number(bookData.price),
+            date: serverTimestamp(),
+            etat: 'reussi',
+            moyen: 'OM',
+            id_transaction,
+            id: `${decodedBookId}_${userId}` // 
+          };
+          
+          const venteRef = collection(db, 'ventes_direct');
+          await addDoc(venteRef, venteData);
         });
-  
-        // 2. Incrémentation du solde de l'auteur
-        const updateAuthorPromise = updateDoc(authorRef, {
-          solde: increment(Number(bookData.price))
-        });
-  
-        // 3. Ajout d'un document dans "ventes_direct"
-        const venteData = {
-          user: userId,
-          auteur: bookData.hauteur,
-          livre: decodedBookId,
-          prix: Number(bookData.price),
-          date: serverTimestamp(),
-          etat: 'reussi', // ou "en cours" selon ta logique
-          moyen: 'OM',
-          transactionId: transactionId
-        };
-        const addVentePromise = addDoc(collection(db, 'ventes_direct'), venteData);
-  
-        // Exécuter les opérations en parallèle
-        await Promise.all([updateUserPromise, updateAuthorPromise, addVentePromise]);
   
         // Stocker les informations pour l'affichage
         setTransactionInfo({
           bookTitle: bookData.name,
           price: bookData.price,
-          transactionId: transactionId,
-          authorName: bookData.hauteur // Remplace par le nom de l'auteur si disponible
+          transactionId: id_transaction,
+          authorName: bookData.hauteur
         });
   
       } catch (err) {
