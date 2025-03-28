@@ -140,11 +140,12 @@ export default function Bibliothèque() {
           <Modal.Body className="d-flex flex-column align-items-center">
             <Image src={selectedBook.coverUrl} fluid style={{ maxHeight: '300px', marginBottom: '1rem' }} />
             <Button 
-              variant="primary" 
-              onClick={() => navigate('/PdfViewer', { state: { pdfUrl: selectedBook.pdfUrl } })}
-            >
-              Lire ce livre
-            </Button>
+                variant="primary" 
+                onClick={() => window.open('https://play.google.com/store/apps/details?id=com.seedsoftengine.papers&pcampaignid=web_share', '_blank')}
+              >
+                Lire ce livre
+              </Button>
+
           </Modal.Body>
         </Modal>
       )}
